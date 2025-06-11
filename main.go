@@ -11,20 +11,29 @@ import (
     "gopkg.in/yaml.v2"
 )
 
-// Task 定义单个任务的执行配置
+// ANSI color codes (subtle palette)
+const (
+    ColorReset = "\033[0m"
+    ColorGray  = "\033[0;37m"
+    ColorCyan  = "\033[0;36m"
+    ColorGreen = "\033[0;32m"
+    ColorRed   = "\033[0;31m"
+)
+
+// Task defines a single remote job
 type Task struct {
     Name  string   `yaml:"name"`
     Hosts []string `yaml:"hosts"`
     Cmd   string   `yaml:"cmd"`
 }
 
-// Config 包含多个 Task
+// Config holds all tasks
 type Config struct {
-    Tasks []Task `yaml:"tasks"`
+    Tasks []Task   `yaml:"tasks"`
 }
 
-// 加载 YAML 配置
-func loadConfig(path string) (*Config, error) {
+// reads YAML configuration
+func loadConfig (path string) (*Config, error) {
     data, err := ioutil.ReadFile(path)
     if err != nil {
         return nil, err
@@ -37,34 +46,46 @@ func loadConfig(path string) (*Config, error) {
 }
 
 func main() {
-    cfgPath := flag.String("config", "config.yaml", "配置文件路径")
+    // Load configuration
+    cfgPath := flag.String("config", "config.yaml", "path to config file")
     flag.Parse()
 
     cfg, err := loadConfig(*cfgPath)
     if err != nil {
-        log.Fatalf("加载配置失败: %v", err)
+        log.Fatalf("Failed to load config: %v", err)
     }
 
-    // 逐任务执行
+    // Iterate tasks
     for _, task := range cfg.Tasks {
-        fmt.Printf("=== 开始任务: %s ===\n", task.Name)
+        // Task header in cyan
+        fmt.Printf("%s=== Task: %s ===%s\n", ColorCyan, task.Name, ColorReset)
         var wg sync.WaitGroup
 
-        // 并发执行每个主机
         for _, host := range task.Hosts {
             wg.Add(1)
-            go func(h string, cmdStr string) {
+            go func(h string) {
                 defer wg.Done()
-                cmd := exec.Command("ssh", h, cmdStr)
+                // Label in gray
+                fmt.Printf("%s[%s][%s] Running...%s\n", ColorGray, task.Name, h, ColorReset)
+
+                cmd := exec.Command("ssh", h, task.Cmd)
                 output, err := cmd.CombinedOutput()
+
                 if err != nil {
-                    fmt.Printf("[%s][%s] 执行失败: %v\n输出: %s\n", task.Name, h, err, output)
+                    // Error in red
+                    fmt.Printf("%s[%s][%s] Error%s\n", ColorRed, task.Name, h, ColorReset)
+                    // Print detailed output
+                    fmt.Printf("%s%s%s\n", ColorRed, string(output), ColorReset)
                 } else {
-                    fmt.Printf("[%s][%s] 执行成功: %s\n", task.Name, h, output)
+                    // Success in green
+                    fmt.Printf("%s[%s][%s] Success%s\n", ColorGreen, task.Name, h, ColorReset)
+                    fmt.Printf("%s%s%s\n", ColorGreen, string(output), ColorReset)
                 }
-            }(host, task.Cmd)
+            }(host)
         }
+
         wg.Wait()
-        fmt.Printf("=== 任务完成: %s ===\n\n", task.Name)
+        // Completion in cyan
+        fmt.Printf("%s=== Completed: %s ===%s\n\n", ColorCyan, task.Name, ColorReset)
     }
 }
