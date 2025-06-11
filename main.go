@@ -79,30 +79,19 @@ func main() {
     for _, task := range cfg.Tasks {
         fmt.Printf("%s=== Task: %s ===%s\n", ColorHeader, task.Name, ColorReset)
 
-        // 1) 构造 assignment 前缀
-        assign := buildAssignPrefix(cfg.Env, task.Env) // e.g. "FAVORITE_CAR='Mazda'"
+        assign := buildAssignPrefix(cfg.Env, task.Env) // e.g. FAVORITE_CAR='Mazda'
 
-        // 2) 构造 echo 语句
-        echoStmt := ""
-        if assign != "" {
-            for _, kv := range strings.Split(assign, " ") {
-                key := strings.SplitN(kv, "=", 2)[0]
-                echoStmt += fmt.Sprintf("echo %s=$%s; ", key, key)
-            }
-        }
-
-        // 3) 业务命令或默认 true
         body := strings.TrimSpace(task.Cmd)
         if body == "" {
             body = "true"
         }
-        // 支持多行块：保持原有 task.Cmd 里的换行
-        // wrappedCmd = "VAR=val VAR2=val2 echo ...; your_cmd"
+
         var wrappedCmd string
         if assign != "" {
-            wrappedCmd = assign + " " + echoStmt + body
+            // 使用 env 方式包裹变量
+            wrappedCmd = fmt.Sprintf("env %s bash -c '%s'", assign, body)
         } else {
-            wrappedCmd = echoStmt + body
+            wrappedCmd = fmt.Sprintf("bash -c '%s'", body)
         }
 
         var wg sync.WaitGroup
@@ -113,9 +102,7 @@ func main() {
                 fmt.Printf("%s[%s][%s] Running...%s\n",
                     ColorRun, task.Name, h, ColorReset)
 
-                // bash -lc 保留 profile，然后执行 assignment+echo+body
-                cmd := exec.Command("ssh", "-T", h,
-                    "bash", "-lc", wrappedCmd)
+                cmd := exec.Command("ssh", "-T", h, wrappedCmd)
                 out, err := cmd.CombinedOutput()
 
                 if err != nil {
