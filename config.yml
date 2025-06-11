@@ -16,5 +16,8 @@ tasks:
       - node1
       - node2
       - node3
-    cmd: hostname
+    cmd: |
+      hostname
+      hostname
+      hostname
   
