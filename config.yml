@@ -1,3 +1,5 @@
+env:
+  FAVORITE_CAR: Mazda
 tasks:
   - name: test-local
     hosts: 
@@ -20,4 +22,18 @@ tasks:
       hostname
       hostname
       hostname
+  - name: test-all-cluster-global-env
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: echo $FAVORITE_CAR
+  - name: test-all-cluster-task-env
+    env:
+      FAVORITE_CAR: Axela
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: echo $FAVORITE_CAR
   
