@@ -1,0 +1,11 @@
+tasks:
+  - name: test-remote-standalone
+    hosts:
+      - node2
+    cmd: hostname
+  - name: test-remote-cluster
+    hosts:
+      - node2
+      - node3
+    cmd: hostname
+  
