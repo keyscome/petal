@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	taskFilePath := flag.String("file", "task.yaml", "path to task file (default: task.yaml)")
+	taskFilePath := flag.String("file", "task.yml", "path to task file (default: task.yml)")
 	flag.Parse()
 	selectedTaskNames := flag.Args()
 

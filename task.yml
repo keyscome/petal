@@ -1,5 +1,5 @@
 env:
-  FAVORITE_CAR: Mazda
+  FAVORITE_ROLE: Wukong
 tasks:
   - name: test-local
     hosts: 
@@ -27,13 +27,13 @@ tasks:
       - node1
       - node2
       - node3
-    cmd: echo $FAVORITE_CAR
+    cmd: echo $FAVORITE_ROLE
   - name: test-all-cluster-task-env
     env:
-      FAVORITE_CAR: Axela
+      FAVORITE_ROLE: Bajie
     hosts:
       - node1
       - node2
       - node3
-    cmd: echo $FAVORITE_CAR
+    cmd: echo $FAVORITE_ROLE
   
