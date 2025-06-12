@@ -37,7 +37,7 @@ func (r *Runner) Run(task config.RemoteTask) {
 		go func(h string) {
 			defer wg.Done()
 			color.PrintRunning("[%s][%s] Running...", task.Name, h)
-
+			color.PrintRunning(task.Cmd)
 			output, err := r.Exec.Execute(h, envAssign, task.Cmd)
 			if err != nil {
 				color.PrintError("[%s][%s] Error", task.Name, h)
