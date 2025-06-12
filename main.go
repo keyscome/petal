@@ -12,98 +12,103 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// 控制台输出颜色（护眼色）
 const (
-	ColorReset   = "\033[0m"
-	ColorHeader  = "\033[0;36m"
-	ColorRun     = "\033[1;33m"
-	ColorSuccess = "\033[1;92m"
-	ColorError   = "\033[1;91m"
+	AnsiReset   = "\033[0m"
+	AnsiHeader  = "\033[0;36m"
+	AnsiRunning = "\033[1;33m"
+	AnsiSuccess = "\033[1;92m"
+	AnsiError   = "\033[1;91m"
 )
 
-type Task struct {
+// RemoteTask 表示单个任务
+type RemoteTask struct {
 	Name  string            `yaml:"name"`
 	Hosts []string          `yaml:"hosts"`
 	Env   map[string]string `yaml:"env,omitempty"`
 	Cmd   string            `yaml:"cmd"`
 }
 
-type Config struct {
+// TaskFile 表示整个 YAML 配置文件
+type TaskFile struct {
 	Env   map[string]string `yaml:"env,omitempty"`
-	Tasks []Task            `yaml:"tasks"`
+	Tasks []RemoteTask      `yaml:"tasks"`
 }
 
-func loadConfig(path string) (*Config, error) {
+// loadTaskFile 读取并解析任务配置 YAML 文件
+func loadTaskFile(path string) (*TaskFile, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	var taskFile TaskFile
+	if err := yaml.Unmarshal(data, &taskFile); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return &taskFile, nil
 }
 
-func buildAssignPrefix(globalEnv, taskEnv map[string]string) string {
-	m := make(map[string]string)
+// buildEnvString 合并全局和任务级 env，构造形如 "KEY='val'" 的字符串
+func buildEnvString(globalEnv, taskEnv map[string]string) string {
+	merged := make(map[string]string)
 	for k, v := range globalEnv {
-		m[k] = v
+		merged[k] = v
 	}
 	for k, v := range taskEnv {
-		m[k] = v
+		merged[k] = v
 	}
-	if len(m) == 0 {
+	if len(merged) == 0 {
 		return ""
 	}
-	parts := make([]string, 0, len(m))
-	for k, v := range m {
+	parts := make([]string, 0, len(merged))
+	for k, v := range merged {
 		parts = append(parts, fmt.Sprintf("%s='%s'", k, v))
 	}
 	return strings.Join(parts, " ")
 }
 
 func main() {
-	cfgFile := flag.String("config", "task.yaml", "path to config file (default: task.yaml)")
+	taskFilePath := flag.String("file", "task.yaml", "path to task file (default: task.yaml)")
 	flag.Parse()
-	taskNames := flag.Args() // 剩下的参数作为任务名顺序执行
+	selectedTaskNames := flag.Args()
 
-	cfg, err := loadConfig(*cfgFile)
+	taskFile, err := loadTaskFile(*taskFilePath)
 	if err != nil {
-		log.Fatalf("load config: %v", err)
+		log.Fatalf("failed to load task file: %v", err)
 	}
 
-	tasksToRun := make([]Task, 0)
-	if len(taskNames) == 0 {
-		tasksToRun = cfg.Tasks // 默认全部执行
+	var tasksToRun []RemoteTask
+	if len(selectedTaskNames) == 0 {
+		tasksToRun = taskFile.Tasks
 	} else {
-		// 按参数顺序筛选任务
-		taskMap := make(map[string]Task)
-		for _, t := range cfg.Tasks {
+		taskMap := make(map[string]RemoteTask)
+		for _, t := range taskFile.Tasks {
 			taskMap[t.Name] = t
 		}
-		for _, name := range taskNames {
+		for _, name := range selectedTaskNames {
 			task, ok := taskMap[name]
 			if !ok {
-				log.Fatalf("task '%s' not found in config", name)
+				log.Fatalf("task '%s' not found in task file", name)
 			}
 			tasksToRun = append(tasksToRun, task)
 		}
 	}
 
 	for _, task := range tasksToRun {
-		fmt.Printf("%s=== Task: %s ===%s\n", ColorHeader, task.Name, ColorReset)
+		fmt.Printf("%s=== Task: %s ===%s\n", AnsiHeader, task.Name, AnsiReset)
 
-		assign := buildAssignPrefix(cfg.Env, task.Env)
-		body := strings.TrimSpace(task.Cmd)
-		if body == "" {
-			body = "true"
+		envAssign := buildEnvString(taskFile.Env, task.Env)
+
+		commandBody := strings.TrimSpace(task.Cmd)
+		if commandBody == "" {
+			commandBody = "true"
 		}
 
-		var wrappedCmd string
-		if assign != "" {
-			wrappedCmd = fmt.Sprintf("env %s bash -c '%s'", assign, body)
+		var fullCommand string
+		if envAssign != "" {
+			fullCommand = fmt.Sprintf("env %s bash -c '%s'", envAssign, commandBody)
 		} else {
-			wrappedCmd = fmt.Sprintf("bash -c '%s'", body)
+			fullCommand = fmt.Sprintf("bash -c '%s'", commandBody)
 		}
 
 		var wg sync.WaitGroup
@@ -111,19 +116,20 @@ func main() {
 			wg.Add(1)
 			go func(h string) {
 				defer wg.Done()
-				fmt.Printf("%s[%s][%s] Running...%s\n", ColorRun, task.Name, h, ColorReset)
-				cmd := exec.Command("ssh", "-T", h, wrappedCmd)
-				out, err := cmd.CombinedOutput()
+				fmt.Printf("%s[%s][%s] Running...%s\n", AnsiRunning, task.Name, h, AnsiReset)
+
+				cmd := exec.Command("ssh", "-T", h, fullCommand)
+				output, err := cmd.CombinedOutput()
 				if err != nil {
-					fmt.Printf("%s[%s][%s] Error%s\n", ColorError, task.Name, h, ColorReset)
-					fmt.Printf("%s%s%s\n", ColorError, string(out), ColorReset)
+					fmt.Printf("%s[%s][%s] Error%s\n", AnsiError, task.Name, h, AnsiReset)
+					fmt.Printf("%s%s%s\n", AnsiError, string(output), AnsiReset)
 				} else {
-					fmt.Printf("%s[%s][%s] Success%s\n", ColorSuccess, task.Name, h, ColorReset)
-					fmt.Printf("%s%s%s\n", ColorSuccess, string(out), ColorReset)
+					fmt.Printf("%s[%s][%s] Success%s\n", AnsiSuccess, task.Name, h, AnsiReset)
+					fmt.Printf("%s%s%s\n", AnsiSuccess, string(output), AnsiReset)
 				}
 			}(host)
 		}
 		wg.Wait()
-		fmt.Printf("%s=== Completed: %s ===%s\n\n", ColorHeader, task.Name, ColorReset)
+		fmt.Printf("%s=== Completed: %s ===%s\n\n", AnsiHeader, task.Name, AnsiReset)
 	}
 }
