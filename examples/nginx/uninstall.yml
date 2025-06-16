@@ -1,0 +1,52 @@
+env:
+  TMP_DIR: /tmp/selfhosted/nginx
+
+tasks:
+- name: Ensure TMP_DIR Exists
+  hosts:
+    - node1
+  cmd: |
+    [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR"
+
+- name: Check NGINX Version Before Uninstallation
+  hosts:
+    - node1
+  cmd: |
+    echo "[INFO] Checking NGINX version before uninstall:"
+
+    command -v nginx >/dev/null 2>&1 && \
+      nginx -v || \
+      echo "[INFO] nginx binary not found"
+
+    rpm -qa | grep nginx || echo "[INFO] No nginx RPM packages found"
+
+- name: Remove NGINX
+  hosts:
+    - node1
+  cmd: |
+    yum remove -y nginx
+
+- name: Move NGINX Repo File to TMP_DIR
+  hosts:
+    - node1
+  cmd: |
+    [ -f /etc/yum.repos.d/nginx.repo ] && {
+      mv /etc/yum.repos.d/nginx.repo "$TMP_DIR";
+      echo "[INFO] nginx.repo moved to $TMP_DIR";
+    } || echo "[INFO] nginx.repo not found, skipping"
+
+- name: Verify NGINX Removal
+  hosts:
+    - node1
+  cmd: |
+    echo "=== Post-Uninstall Verification ==="
+
+    command -v nginx >/dev/null 2>&1 && {
+      echo "[WARN] nginx binary still exists:";
+      nginx -v;
+    } || echo "[OK] nginx binary not found"
+
+    rpm -qa | grep -q nginx && {
+      echo "[WARN] nginx RPM packages still present:";
+      rpm -qa | grep nginx;
+    } || echo "[OK] no nginx RPM packages found"
