@@ -60,8 +60,8 @@ Run selected task(s):
 - ✅ Global + task-level environment support
 - ✅ Parallel SSH command execution
 - ✅ Color-coded terminal output
-- ⏳ Planned: Local executor support
-- ⏳ Planned: Plugin system (e.g., Docker, K8s, REST)
+- ⏳ Planned: Logically Orchestrate Tasks
+- ⏳ Planned: Senstive Environment Variables
 
 ## 🤝 Contributing
 
