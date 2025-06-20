@@ -15,14 +15,26 @@ func (s SSHExecutor) Execute(host, envAssign, cmd string) (string, error) {
 		cmdBody = "true"
 	}
 
-	var fullCommand string
-	if envAssign != "" {
-		fullCommand = fmt.Sprintf("env %s bash -c '%s'", envAssign, cmdBody)
-	} else {
-		fullCommand = fmt.Sprintf("bash -c '%s'", cmdBody)
-	}
+	// 构建远程 bash 执行命令
+	var sshArgs []string
+	sshArgs = append(sshArgs, "-T", host)
 
-	sshCmd := exec.Command("ssh", "-T", host, fullCommand)
+	// 加上 env 变量（如果有）和 bash -s
+	var remoteCommand string
+	if envAssign != "" {
+		remoteCommand = fmt.Sprintf("env %s bash -s", envAssign)
+	} else {
+		remoteCommand = "bash -s"
+	}
+	sshArgs = append(sshArgs, remoteCommand)
+
+	// 构造命令
+	sshCmd := exec.Command("ssh", sshArgs...)
+
+	// 将命令内容通过 stdin 传入
+	sshCmd.Stdin = strings.NewReader(cmdBody)
+
+	// 获取输出
 	output, err := sshCmd.CombinedOutput()
 	return string(output), err
 }
