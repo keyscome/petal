@@ -1,0 +1,57 @@
+env:
+  TMP_DIR: /tmp/selfhosted/
+  TMP_DIR_ZK: /tmp/selfhosted/zk/
+  DATA_HOME: /data
+  ZK_HOME: /data/zookeeper-3.4.8
+  ZKUI_HOME: /data/zkui
+tasks:
+- name: Check Directory
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    [ -d $TMP_DIR ] || mkdir -p $TMP_DIR
+    [ -d $TMP_DIR_ZK ] || mkdir -p $TMP_DIR_ZK
+    [ -d $DATA_HOME ] || mkdir -p $DATA_HOME
+    [ -d $ZKUI_HOME ] || mkdir -p $ZKUI_HOME
+- name: Stop ZKServer
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    $ZK_HOME/bin/zkServer.sh stop
+- name: Move Zookeeper to $TMP_DIR_ZK
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    \mv $ZK_HOME $TMP_DIR_ZK
+- name: Check after Uninstallation of Zookeeper
+  hosts: 
+    - node1
+    - node2
+    - node3
+  cmd: |
+    ls -l $DATA_HOME
+    ls -l $TMP_DIR
+- name: Stop ZKUI
+  hosts:
+    - node3
+  cmd: |
+    pkill -f zkui-2.0-SNAPSHOT-jar-with-dependencies.jar
+- name: Move ZKUI jar to $TMP_DIR_ZK
+  hosts: 
+    - node3
+  cmd: |
+    \mv $ZKUI_HOME $TMP_DIR_ZK
+- name: Check Check after Uninstallation of ZKUI
+  hosts:
+    - node3
+  cmd: |
+    ls -l $DATA_HOME
+    ls -l $TMP_DIR
+
+

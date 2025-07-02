@@ -1,0 +1,25 @@
+tasks:
+- name: Download OBS Util Package
+  hosts: 
+    - node1
+    - node2
+    - node3
+  cmd: |
+    wget https://obs-community-intl.obs.ap-southeast-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz
+    
+- name: Extract OBS Util Package
+  hosts: 
+    - node1
+    - node2
+    - node3
+  cmd: | 
+    tar zxf obsutil_linux_amd64.tar.gz
+    mv obsutil_linux_amd64*/obsutil /usr/bin/
+
+- name: Check OBS Util Cli
+  hosts: 
+    - node1
+    - node2
+    - node3
+  cmd: |
+    which obsutil    

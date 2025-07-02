@@ -1,0 +1,261 @@
+env:
+  PASSWORD_FILE: /tmp/es_password
+  ELASTIC_PASSWORD_FILE: /tmp/es_password_elastic
+  NODE1_IP: 10.31.0.93
+  NODE2_IP: 10.31.0.246
+  NODE3_IP: 10.31.0.68
+tasks:
+  - name: Configure ES System Limits
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cat <<EOF >> /etc/security/limits.conf
+      elasticsearch soft nproc 65535
+      elasticsearch hard nproc 65535
+      elasticsearch soft nofile 65535
+      elasticsearch hard nofile 65535
+      EOF
+      cat <<EOF >> /etc/sysctl.conf
+      vm.max_map_count = 262144
+      EOF
+      sysctl -p
+
+  - name: Create User
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      useradd elasticsearch -s /sbin/nologin
+      mkdir -p /data/es717/data
+      mkdir -p /data/es717/logs
+
+  - name: Download && Install ES Packages
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      obsutil cp -r -f obs://selfhosted/pkg/es/ /tmp/selfhosted/
+      cd /tmp/selfhosted/es/
+      rpm -ivh elasticsearch-7.17.11-x86_64.rpm
+      systemctl daemon-reload
+
+  - name: Install JDK17
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cd /tmp/selfhosted/es/
+      tar xf jdk-17.0.2.tar -C /opt/
+      cat <<EOF >> /etc/profile
+      export ES_JAVA_HOME=/opt/jdk-17.0.2
+      export ES_PATH_CONF=/etc/elasticsearch
+      LANG=en_US.UTF-8
+      SYSFONT=latarcyrheb-sun16
+      EOF
+
+  - name: Update Configuration node1
+    hosts:
+      - node1
+    cmd: |
+      cat <<EOF > /etc/elasticsearch/elasticsearch.yml
+      cluster.name: es717-hqyg
+      node.name: node-1-7-hqyg
+      node.attr.rack: r1-7-hqyg
+      path.data: /data/es717/data
+      path.logs: /data/es717/logs
+      bootstrap.memory_lock: false
+      bootstrap.system_call_filter: false
+      network.host: node1
+      http.port: 9200
+      transport.host: node1
+      transport.tcp.port: 9300
+      discovery.seed_hosts: ["$NODE1_IP:9300","$NODE2_IP:9300","$NODE3_IP:9300"]
+      action.destructive_requires_name: true
+      indices.query.bool.max_clause_count: 10240
+      cluster.initial_master_nodes: ["$NODE1_IP:9300","$NODE2_IP:9300","$NODE3_IP:9300"]
+      node.master: true
+      node.data: true
+      xpack.security.enabled: true
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.key: x-pack/instance/instance.key
+      xpack.security.transport.ssl.certificate: x-pack/instance/instance.crt
+      xpack.security.transport.ssl.certificate_authorities: x-pack/ca/ca.crt
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.transport.ssl.client_authentication: required
+      EOF
+
+  - name: Update Configuration node2
+    hosts:
+      - node2
+    cmd: |
+      cat <<EOF > /etc/elasticsearch/elasticsearch.yml
+      cluster.name: es717-hqyg
+      node.name: node-2-7-hqyg
+      node.attr.rack: r2-7-hqyg
+      path.data: /data/es717/data
+      path.logs: /data/es717/logs
+      bootstrap.memory_lock: false
+      bootstrap.system_call_filter: false
+      network.host: node2
+      http.port: 9200
+      transport.host: node2
+      transport.tcp.port: 9300
+      discovery.seed_hosts: ["$NODE1_IP:9300","$NODE2_IP:9300","$NODE3_IP:9300"]
+      action.destructive_requires_name: true
+      indices.query.bool.max_clause_count: 10240
+      cluster.initial_master_nodes: ["$NODE1_IP:9300","$NODE2_IP:9300","$NODE3_IP:9300"]
+      node.master: true
+      node.data: true
+      xpack.security.enabled: true
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.key: x-pack/instance/instance.key
+      xpack.security.transport.ssl.certificate: x-pack/instance/instance.crt
+      xpack.security.transport.ssl.certificate_authorities: x-pack/ca/ca.crt
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.transport.ssl.client_authentication: required
+      EOF
+
+  - name: Update Configuration node3
+    hosts:
+      - node3
+    cmd: |
+      cat <<EOF > /etc/elasticsearch/elasticsearch.yml
+      cluster.name: es717-hqyg
+      node.name: node-3-7-hqyg
+      node.attr.rack: r3-7-hqyg
+      path.data: /data/es717/data
+      path.logs: /data/es717/logs
+      bootstrap.memory_lock: false
+      bootstrap.system_call_filter: false
+      network.host: node3
+      http.port: 9200
+      transport.host: node3
+      transport.tcp.port: 9300
+      discovery.seed_hosts: ["$NODE1_IP:9300","$NODE2_IP:9300","$NODE3_IP:9300"]
+      action.destructive_requires_name: true
+      indices.query.bool.max_clause_count: 10240
+      cluster.initial_master_nodes: ["$NODE1_IP:9300","$NODE2_IP:9300","$NODE3_IP:9300"]
+      node.master: true
+      node.data: true
+      xpack.security.enabled: true
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.key: x-pack/instance/instance.key
+      xpack.security.transport.ssl.certificate: x-pack/instance/instance.crt
+      xpack.security.transport.ssl.certificate_authorities: x-pack/ca/ca.crt
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.transport.ssl.client_authentication: required
+      EOF
+
+  - name: Install Plugins
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cd /tmp/selfhosted/es/
+      tar zxf plugins.tgz -C /usr/share/elasticsearch/plugins/
+      touch /etc/elasticsearch/char_filter_text.txt
+
+  - name: Install xpack Files
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cd /tmp/selfhosted/es/
+      tar xf x-pack.tar -C /etc/elasticsearch/
+
+  - name: Update File & Directory Permissions
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      chown elasticsearch.elasticsearch -R /etc/elasticsearch
+      chown elasticsearch.elasticsearch -R /var/lib/elasticsearch
+      chown elasticsearch.elasticsearch -R /etc/init.d/elasticsearch
+      chown elasticsearch.elasticsearch -R /var/log/elasticsearch
+      chown elasticsearch.elasticsearch -R /usr/share/elasticsearch
+      # chown elasticsearch.elasticsearch -R /var/run/elasticsearch
+      chown elasticsearch.elasticsearch -R /home/elasticsearch
+      chown elasticsearch.elasticsearch -R /data/es717/data
+      chown elasticsearch.elasticsearch -R /data/es717/logs
+
+  - name: Start ES
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      systemctl daemon-reload
+      systemctl start elasticsearch
+
+  - name: Set Password
+    hosts:
+      - node3
+    cmd: |
+      /usr/share/elasticsearch/bin/elasticsearch-setup-passwords auto -b \
+        -E "elasticsearch.host=http://$NODE3_IP:9200" \
+        > $PASSWORD_FILE
+      grep '^PASSWORD elastic =' $PASSWORD_FILE | awk '{print $4}' > $ELASTIC_PASSWORD_FILE
+      export ELASTIC_PASSWORD=$(cat $ELASTIC_PASSWORD_FILE)
+      echo "Elastic Password: $ELASTIC_PASSWORD"
+
+  - name: Check Cluster 
+    hosts: 
+      - node3
+    cmd: |
+      export ELASTIC_PASSWORD=$(cat $ELASTIC_PASSWORD_FILE)
+      echo "Elastic Password: $ELASTIC_PASSWORD"
+      curl -u "elastic:$ELASTIC_PASSWORD" -XGET http://node1:9200/_cat/indices
+      curl -u "elastic:$ELASTIC_PASSWORD" -XGET http://node1:9200/_cluster/health?pretty
+      curl -u "elastic:$ELASTIC_PASSWORD" -XGET http://node1:9200/_cat/nodes
+    
+
+  - name: Install Kibana
+    hosts:
+      - node3
+    cmd: |
+      cd /tmp/selfhosted/es/
+      rpm -ivh kibana-7.17.11-x86_64.rpm
+
+  - name: Change Kibana Password
+    hosts:
+      - node3
+    cmd: |
+      export ELASTIC_PASSWORD=$(cat $ELASTIC_PASSWORD_FILE)
+      echo "Elastic Password: $ELASTIC_PASSWORD"
+      cat <<EOF >/etc/kibana/kibana.yml
+      server.port: 5601
+      server.host: "0.0.0.0"
+      elasticsearch.hosts: ["http://node3:9200"]
+      kibana.index: ".kibana"
+      pid.file: /var/run/kibana.pid
+      logging.dest: stdout
+      elasticsearch.username: elastic
+      elasticsearch.password: $ELASTIC_PASSWORD
+      EOF
+
+  - name: Start Kibana
+    hosts:
+      - node3
+    cmd: |
+      systemctl daemon-reload
+      systemctl enable kibana
+      systemctl start kibana
+      systemctl status kibana      
+      
+  - name: Post
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cd ~
+      rm -fr /tmp/selfhosted/es/
+      rm -f $PASSWORD_FILE

@@ -1,0 +1,27 @@
+tasks:
+  - name: Stop Nacos Service
+    hosts: [node1, node2, node3]
+    cmd: |
+      systemctl stop nacos || true
+      systemctl disable nacos || true
+      systemctl reset-failed nacos || true
+
+  - name: Remove Nacos Service File
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -f /etc/systemd/system/nacos.service || true
+      systemctl daemon-reload || true  
+
+  - name: Remove Nacos Configuration Directory
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -rf /data/nacos || true 
+      rm -rf /tmp/selfhosted/nacos || true
+
+  - name: Remove Nacos Database
+    hosts: 
+      - node1
+    cmd: |
+      su - postgres -c "psql -c 'DROP DATABASE IF EXISTS nacos_config;'"
+      su - postgres -c "psql -c 'DROP ROLE IF EXISTS nacos;'"
+      

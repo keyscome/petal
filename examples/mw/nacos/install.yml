@@ -1,0 +1,62 @@
+env:
+  TMP_DIR: /tmp/selfhosted
+  TMP_DIR_NACOS: /tmp/selfhosted/nacos
+  POSTGRESQL_IP: 10.31.0.93
+  PASSWORD: Heli198213
+tasks:
+  - name: Download Nacos Packages
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      obsutil cp -r -f obs://selfhosted/pkg/nacos/ $TMP_DIR
+      tar zxf $TMP_DIR/nacos/nacos_pg.tgz -C /data
+      mv /data/nacos_pg /data/nacos
+
+  - name: Postgre Nacos Setup
+    hosts: [node1]
+    cmd: |
+      su - postgres -c "psql -c 'CREATE DATABASE nacos_config;'" || echo "Database exists"
+      su - postgres -c "psql -c \"CREATE USER nacos WITH PASSWORD 'Heli198213';\"" || echo "User exists"
+      su - postgres -c "psql -c 'GRANT ALL PRIVILEGES ON DATABASE nacos_config TO nacos;'"
+
+      PGPASSWORD=Heli198213 psql -U nacos -h 127.0.0.1 -d nacos_config -f $TMP_DIR_NACOS/nacos-pg.sql
+
+  - name: Nacos Config Setup
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      sed -i "s|^db.url.0=.*|db.url.0=jdbc:postgresql://${POSTGRESQL_IP}:5432/nacos_config|" /data/nacos/conf/application.properties
+  
+  - name: Systemd Nacos Service
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cat <<EOF > /etc/systemd/system/nacos.service
+      [Unit]
+      Description=Nacos Service
+      After=network.target
+
+      # Add a condition to wait for PostgreSQL to be available on node1
+      [Service]
+      Type=forking
+      User=root
+
+      # Check if PostGreSQL is ready on node1 before starting
+      ExecStartPre=/bin/bash -c 'until nc -z node1 5432; do echo "Waiting for PostGreSQL to be up on node1..."; sleep 3; done'
+      Environment=JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.412.b08-1.el7_9.x86_64
+      ExecStart=/data/nacos/bin/startup.sh
+      ExecStop=/data/nacos/bin/shutdown.sh
+
+      [Install]
+      WantedBy=multi-user.target
+      EOF
+      systemctl daemon-reload
+      systemctl enable nacos.service
+      systemctl start nacos.service
+      systemctl status nacos.service

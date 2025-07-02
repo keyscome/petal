@@ -1,0 +1,116 @@
+tasks:
+  - name: Download Fileconvet Base Environment Package
+    hosts: 
+      - node1
+      - node2
+    cmd: |
+      obsutil cp obs://selfhosted/pkg/fileconvert/fileconvert.tgz .
+
+  - name: Extract Fileconvet Base Environment Package
+    hosts:
+      - node1
+      - node2
+    cmd: |
+      tar zxf fileconvert.tgz
+
+  - name: Install Apache_OpenOffice_4.1.7_Linux_x86-64_install-rpm_zh-CN
+    hosts: 
+      - node1
+      - node2
+    cmd: |
+      tar zxf fileconvert/Apache_OpenOffice_4.1.7_Linux_x86-64_install-rpm_zh-CN.tar.gz
+      rpm -ivh zh-CN/RPMS/openoffice-4.1.7-9800.x86_64.rpm
+      rpm -ivh zh-CN/RPMS/*.rpm
+      rm -fr zh-CN/RPM
+  - name: Install LibreOffice_6.4.4.2_Linux_x86-64_rpm
+    hosts:
+      - node1
+      - node2
+    cmd: |
+      tar zxf fileconvert/LibreOffice_6.4.4.2_Linux_x86-64_rpm.tar.gz
+      rpm -ivh LibreOffice_6.4.4.2_Linux_x86-64_rpm/RPMS/*.rpm
+      rm -fr LibreOffice_6.4.4.2_Linux_x86-64_rpm/RPMS
+
+  - name: Install LibreOffice_6.4.4.2_Linux_x86-64_rpm_langpack_zh-CN
+    hosts:
+      - node1
+      - node2
+    cmd: |
+      tar zxf fileconvert/LibreOffice_6.4.4.2_Linux_x86-64_rpm_langpack_zh-CN.tar.gz
+      rpm -ivh LibreOffice_6.4.4.2_Linux_x86-64_rpm_langpack_zh-CN/RPMS/*.rpm
+      rm -fr LibreOffice_6.4.4.2_Linux_x86-64_rpm_langpack_zh-CN/RPMS
+
+  - name: Install LibreOffice_6.4.4.2_Linux_x86-64_rpm_sdk
+    hosts:
+      - node1
+      - node2
+    cmd: |
+      tar zxf fileconvert/LibreOffice_6.4.4.2_Linux_x86-64_rpm_sdk.tar.gz
+      rpm -ivh LibreOffice_6.4.4.2_Linux_x86-64_rpm_sdk/RPMS/*.rpm
+      rm -fr LibreOffice_6.4.4.2_Linux_x86-64_rpm_sdk/RPMS/
+
+  - name: Install google-chrome-stable-119.0.6045.105-1.x86_64
+    hosts:
+      - node1
+      - node2
+    cmd: |
+      rpm -ivh fileconvert/xorg-x11-fonts-75dpi-7.5-9.el7.noarch.rpm
+      rpm -ivh fileconvert/wkhtmltox-0.12.6-1.centos7.x86_64.rpm
+      yum install vulkan -y
+      yum install liberation-fonts -y
+      rpm -ivh fileconvert/google-chrome-stable-119.0.6045.105-1.x86_64.rpm
+      yum localinstall fileconvert/google-chrome-stable-119.0.6045.105-1.x86_64.rpm -y
+
+  - name: Install chromedriver-linux64-v119
+    hosts: 
+      - node1
+      - node2
+    cmd: |
+      unzip fileconvert/chromedriver-linux64-v119.zip
+      cp chromedriver-linux64/chromedriver  /usr/bin/
+  
+  - name: Install linux-usr-share-fonts
+    hosts: 
+      - node1
+      - node2
+    cmd: |
+      unzip fileconvert/linux-usr-share-fonts.zip -D /usr/share/fonts
+      mkfontscale
+      mkfontdir
+      fc-cache
+      fc-list
+      
+
+  - name: Configure Some System ENV
+    hosts: 
+      - node1
+      - node2
+    cmd: |
+      cat <<EOF >> /etc/profile
+      export LANG="zh_CN.UTF-8"
+      EOF
+
+      source /etc/profile
+
+      cat <<EOF >> /etc/sysconfig/i18n
+      LANG="zh_CN.UTF-8"
+      #LANG="zh_CN.GB18030"
+      LANGUAGE="zh_CN.GB18030:zh_CN.GB2312:zh_CN"
+      SUPPORTED="zh_CN.UTF-8:zh_CN:zh:en_US.UTF-8:en_US:en"
+      SYSFONT="latarcyrheb-sun16"
+      EOF
+
+  - name: Configuration Check Script
+    hosts:
+      - node1
+      - node2
+    cmd: |
+      FILE_CONVERT_HOME=/data/hqcrm/paas-file-convert-server/
+      [ -d $FILE_CONVERT_HOME ] || mkdir -p $FILE_CONVERT_HOME
+      \cp fileconvert/check.sh /data/hqcrm/paas-file-convert-server/
+      chmod +x /data/hqcrm/paas-file-convert-server/check.sh
+
+      crontab -l > mycron.tmp 2>/dev/null
+      echo "# */7 * * * * /data/hqcrm/paas-file-convert-server/check.sh" >> mycron.tmp
+      crontab mycron.tmp
+      rm -f mycron.tmp

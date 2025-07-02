@@ -1,0 +1,199 @@
+env:
+  TMP_DIR: /tmp/selfhosted
+  TMP_DIR_RMQ: /tmp/selfhosted/rmq
+  NODE1_HOSTNAME: selfhosted-0001
+  ADMIN_PASSWORD: jshadkhakjdhakj
+  HECOM_PASSWORD: kdsaldjkdsjakldjsalk
+tasks:
+- name: Configure System Limits
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    cat <<EOF >> /etc/security/limits.conf
+    rabbitmq soft nofile 1024000
+    rabbitmq hard nofile 1024000
+    rabbitmq soft nproc 65535
+    rabbitmq hard nproc 65535
+    EOF
+    cat <<EOF >> /etc/sysctl.conf
+    fs.file-max = 65536
+    EOF
+    sysctl -p
+- name: Check Directory
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    [ -d $TMP_DIR ] || mkdir -p $TMP_DIR
+    
+- name: Download RabbitMQ Packages
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    obsutil cp -r -f obs://selfhosted/pkg/rmq/ $TMP_DIR
+- name: Install Erlang etc
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    rpm -ivh $TMP_DIR_RMQ/erlang-20.3.8.26-1.el7.x86_64.rpm
+    rpm -qa erlang
+    rpm -ivh $TMP_DIR_RMQ/socat-1.7.3.2-2.el7.x86_64.rpm
+    rpm -qa socat
+- name: Install RabbitMQ
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    rpm -ivh $TMP_DIR_RMQ/rabbitmq-server-3.6.11-1.el7.noarch.rpm
+    rpm -qa rabbitmq-server
+    systemctl daemon-reload
+    mkdir -p /var/lib/rabbitmq
+    chown rabbitmq:rabbitmq /var/lib/rabbitmq
+- name: Configure Plugins
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    cp $TMP_DIR_RMQ/rabbitmq_delayed* /usr/lib/rabbitmq/lib/rabbitmq_server-3.6.11/plugins/
+    chown rabbitmq:rabbitmq /usr/lib/rabbitmq/lib/rabbitmq_server-3.6.11/plugins/rabbitmq_delayed_message_exchange*
+    chmod 644 /usr/lib/rabbitmq/lib/rabbitmq_server-3.6.11/plugins/rabbitmq_delayed_message_exchange*
+- name: Add Configuration File
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    cp /usr/share/doc/rabbitmq-server-3.6.11/rabbitmq.config.example /etc/rabbitmq/rabbitmq.config
+    chown root:rabbitmq /etc/rabbitmq/rabbitmq.config
+    systemctl enable rabbitmq-server
+    systemctl start rabbitmq-server
+    sleep 3
+
+
+- name: Use Plugin Management
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    rabbitmq-plugins enable rabbitmq_management
+    rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+
+- name: Stop RabbitMQ
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    rabbitmq-plugins disable rabbitmq_management
+    rabbitmq-plugins disable rabbitmq_delayed_message_exchange
+    systemctl stop rabbitmq-server
+  
+- name: Sync Cookie
+  hosts:
+    - node1
+  cmd: |
+    scp /var/lib/rabbitmq/.erlang.cookie node2:/var/lib/rabbitmq/.erlang.cookie
+    scp /var/lib/rabbitmq/.erlang.cookie node3:/var/lib/rabbitmq/.erlang.cookie
+
+- name: Start RabbitMQ
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    chown rabbitmq.rabbitmq -R /var/lib/rabbitmq/
+    systemctl start rabbitmq-server.service
+    rabbitmq-plugins enable rabbitmq_management
+    rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+    sleep 3
+    
+- name: Add node2 node3 to Cluster 
+  hosts:
+    - node2
+    - node3
+  cmd: |
+    cat <<EOF >> /etc/hosts
+    10.31.0.93   selfhosted-0001
+    10.31.0.246  selfhosted-0002
+    10.31.0.68   selfhosted-0003
+    EOF
+    rabbitmqctl stop_app
+    rabbitmqctl join_cluster rabbit@$NODE1_HOSTNAME
+    rabbitmqctl start_app
+    sleep 3
+    rabbitmqctl cluster_status
+
+- name: RabbitMQ Users Ops
+  hosts:
+    - node1
+  cmd: |
+    rabbitmqctl list_users
+    rabbitmqctl add_user admin $ADMIN_PASSWORD
+    rabbitmqctl add_user hecom $HECOM_PASSWORD
+    rabbitmqctl set_user_tags admin administrator
+    rabbitmqctl set_permissions -p / admin ".*" ".*" ".*"
+    rabbitmqctl set_user_tags hecom administrator
+    rabbitmqctl delete_user guest
+
+- name: Create vhost
+  hosts:
+    - node1
+  cmd: |
+    rabbitmqctl add_vhost product60
+    rabbitmqctl add_vhost product
+    rabbitmqctl add_vhost tenancy
+    rabbitmqctl set_permissions -p tenancy hecom ".*" ".*" ".*"
+    rabbitmqctl set_permissions -p product hecom ".*" ".*" ".*"
+
+- name: Declare Exchange
+  hosts:
+    - node1
+  cmd: | 
+    rabbitmqctl eval 'rabbit_exchange:declare({resource, <<"product">>, exchange, <<"dead.letter.exchange">>}, topic, true, false, false, []).'
+    rabbitmqctl eval 'rabbit_exchange:declare({resource, <<"product">>, exchange, <<"paas.exchange">>}, topic, true, false, false, []).'
+    rabbitmqctl eval 'rabbit_exchange:declare({resource, <<"product">>, exchange, <<"paas.im.exchange">>}, direct, true, false, false, []).'
+
+- name: Declare and Bind Queue
+  hosts:
+    - node1
+  cmd: |
+    rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"product">>, queue, <<"dead.letter.queue">>}, true, false, [], none).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"dead.letter.exchange">>}, <<"dead.letter.other">>, {resource, <<"product">>, queue, <<"dead.letter.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"product">>, queue, <<"paas.aggregation.calculate.delay.queue">>}, true, false, [], none).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.create.success.*.*">>, {resource, <<"product">>, queue, <<"paas.aggregation.calculate.delay.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.delete.success.*.*">>, {resource, <<"product">>, queue, <<"paas.aggregation.calculate.delay.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.update.success.*.*">>, {resource, <<"product">>, queue, <<"paas.aggregation.calculate.delay.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"product">>, queue, <<"paas.es.data.delay.queue">>}, true, false, [], none).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.create.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.delay.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.delete.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.delay.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.update.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.delay.queue">>}, []}).'
+    rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, true, false, [], none).'  
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.create.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, []}).'  
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.delete.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, []}).'  
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.update.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, []}).'  
+    rabbitmqctl eval 'rabbit_amqqueue:declare({resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, true, false, [], none).'  
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.create.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, []}).'  
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.delete.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, []}).'  
+    rabbitmqctl eval 'rabbit_binding:add({binding, {resource, <<"product">>, exchange, <<"paas.exchange">>}, <<"paas.es.doc.update.success.*.*">>, {resource, <<"product">>, queue, <<"paas.es.data.universal.delay.queue">>}, []}).'  
+
+- name: Set Policy
+  hosts:
+    - node1
+  cmd: |
+    rabbitmqctl set_policy  -p "product" "AGG TTL"  "^paas.aggregation.calculate.delay.queue$" '{"ha-mode":"exactly","ha-params":1,"dead-letter-exchange":"paas.exchange", "dead-letter-routing-key":"paas.aggregation.calculate", "message-ttl":2000}'  --priority 1 --apply-to queues
+    rabbitmqctl set_policy  -p "product" "IM TTL"  "^paas.im.sendMsg.delay.queue$" '{"ha-mode":"exactly","ha-params":1,"dead-letter-exchange":"paas.im.exchange", "dead-letter-routing-key":"paas.im.message.send", "message-ttl":1000}'  --priority 1 --apply-to queues
+    rabbitmqctl set_policy  -p "product" "ES TTL"  "^paas.es.data.delay.queue$" '{"ha-mode":"exactly","ha-params":1,"dead-letter-exchange":"paas.exchange", "dead-letter-routing-key":"paas.es.doc.success.delay", "message-ttl":1000}'  --priority 1 --apply-to queues
+    rabbitmqctl set_policy  -p "product" "DLX_ALL"  '^(?!(^paas.aggregation.calculate.delay.queue$|^dead.letter.queue$|^paas.im.sendMsg.delay.queue$|^paas.es.data.delay.queue$|^\w{1,}-\w{1,}-\w{1,}-\w{1,}-\w{1,}$))' '{"ha-mode":"exactly","ha-params":1, "dead-letter-exchange":"dead.letter.exchange", "dead-letter-routing-key":"dead.letter.other"}'  --priority 0 --apply-to queues
+    rabbitmqctl set_policy  -p "product" "DLX_D"  "^dead.letter.queue$" '{"ha-mode":"exactly","ha-params":1,"ha-sync-mode":"automatic"}'  --priority 0 --apply-to queues
+    rabbitmqctl set_policy  -p "tenancy" "HA"  "tenancy.*" '{"ha-mode":"exactly","ha-params":1,"ha-sync-mode":"automatic"}'  --priority 0 --apply-to queues
+    rabbitmqctl set_policy  -p "product" "ES TTL UNIVERSAL"  "^paas.es.data.universal.delay.queue$" '{"ha-mode":"exactly","ha-params":1,"dead-letter-exchange":"paas.exchange", "dead-letter-routing-key":"paas.es.doc.success.universal.delay", "message-ttl":2000}'  --priority 1 --apply-to queues

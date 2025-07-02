@@ -1,0 +1,88 @@
+env:
+  TMP_DIR: /tmp/selfhosted
+  TMP_DIR_MINIO: /tmp/selfhosted/minio
+  NODE1_IP: 10.31.0.93
+  NODE2_IP: 10.31.0.246
+  NODE3_IP: 10.31.0.68
+tasks: 
+  - name: Download Minio Package
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      obsutil cp -r -f obs://selfhosted/pkg/minio/ $TMP_DIR
+
+  - name: Install Minio
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      yum install -y $TMP_DIR_MINIO/minio-20210326000041.0.0.x86_64.rpm
+      rpm -qa | grep minio
+
+  - name: Write Minio Start Script
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      [ -d /data/minio ] || mkdir -p /data/minio
+      cat <<EOF > /usr/local/bin/start-minio.sh
+      #!/bin/bash
+      # /usr/local/bin/start-minio.sh
+
+      # 设置 MinIO 用户名和密码
+      export MINIO_ROOT_USER=minioadmin
+      export MINIO_ROOT_PASSWORD=minioadmin#Crm110
+
+      [ -d /data/minio ] || mkdir -p /data/minio
+      [ -d /data/minio/data1 ] || mkdir -p /data/minio/data1
+      [ -d /data/minio/data2 ] || mkdir -p /data/minio/data2
+
+      # 启动 MinIO 服务并将输出追加到日志文件
+      /usr/local/bin/minio server --address :9000 \
+        http://${NODE1_IP}/data/minio/data1 http://${NODE1_IP}/data/minio/data2 \
+        http://${NODE2_IP}/data/minio/data1 http://${NODE2_IP}/data/minio/data2 \
+        http://${NODE3_IP}/data/minio/data1 http://${NODE3_IP}/data/minio/data2 \
+        2>&1 | tee -a /data/minio/minio.log
+      EOF
+      chmod +x /usr/local/bin/start-minio.sh
+
+  - name: Minio Systemd Service
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      cat <<EOF > /etc/systemd/system/minio.service
+      # /etc/systemd/system/minio.service
+
+      [Unit]
+      Description=MinIO distributed object storage server
+      After=network.target
+
+      [Service]
+      User=root
+      Group=root
+      ExecStart=/usr/local/bin/start-minio.sh
+      WorkingDirectory=/data/minio
+      Restart=always
+      LimitNOFILE=65536
+      Environment="MINIO_BROWSER_REDIRECT_PORT=9000"
+
+      [Install]
+      WantedBy=multi-user.target
+      EOF
+      systemctl daemon-reload
+
+  - name: Start Minio Service
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      systemctl enable minio
+      systemctl start minio
+      systemctl status minio

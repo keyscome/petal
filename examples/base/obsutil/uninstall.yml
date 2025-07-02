@@ -1,0 +1,65 @@
+env:
+  TMP_DIR: /tmp/selfhosted/obsutil
+
+tasks:
+- name: Ensure TMP_DIR Exists
+  hosts: 
+    - node1
+  cmd: |
+    [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR"
+
+- name: Move OBS Configuration File to TMP_DIR
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    CONFIG_FILE="$HOME/.obsutilconfig"
+    if [ -f "$CONFIG_FILE" ]; then
+      mv "$CONFIG_FILE" "$TMP_DIR"
+      echo "[INFO] obsutil config moved to $TMP_DIR"
+    else
+      echo "[INFO] obsutil config not found, skipping"
+    fi
+
+- name: Check OBS Configuration File in TMP_DIR
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    FILE="$TMP_DIR/.obsutilconfig"
+    if [ -f "$FILE" ]; then
+      echo "[OK] obsutil config file exists in $TMP_DIR"
+      ls -l "$FILE"
+    else
+      echo "[WARN] obsutil config not found in $TMP_DIR"
+    fi
+
+- name: Move OBS Util CLI to TMP_DIR
+  hosts: 
+    - node1
+    - node2
+    - node3
+  cmd: |
+    OBS_PATH="$(which obsutil 2>/dev/null)"
+    if [ -x "$OBS_PATH" ]; then
+      mv "$OBS_PATH" "$TMP_DIR"
+      echo "[INFO] obsutil binary moved to $TMP_DIR"
+    else
+      echo "[INFO] obsutil binary not found, skipping"
+    fi
+
+- name: Check OBS Util CLI in TMP_DIR
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    FILE="$TMP_DIR/obsutil"
+    if [ -x "$FILE" ]; then
+      echo "[OK] obsutil binary exists in $TMP_DIR"
+      ls -l "$FILE"
+    else
+      echo "[WARN] obsutil binary not found in $TMP_DIR"
+    fi

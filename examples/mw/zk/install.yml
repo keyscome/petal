@@ -1,0 +1,150 @@
+env:
+  TMP_DIR: /tmp/selfhosted/
+  TMP_DIR_ZK: /tmp/selfhosted/zk/
+  DATA_HOME: /data
+  ZK_HOME: /data/zookeeper-3.4.8
+  ZK_DATA_DIR: /data/zookeeper-3.4.8/data
+  ZK_CONFIG_FILE: /data/zookeeper-3.4.8/conf/zoo.cfg
+  ZKUI_HOME: /data/zkui
+  ZKUI_CONFIG_FILE: /data/zkui/config.cfg
+  NODE1_IP: 10.31.0.93
+  NODE2_IP: 10.31.0.246
+  NODE3_IP: 10.31.0.68
+  ZK_STRING: 10.31.0.93:3000,10.31.0.246:3000,10.31.0.68:3000
+
+tasks:
+- name: Check Directory
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    [ -d $TMP_DIR ] || mkdir -p $TMP_DIR
+    [ -d $TMP_DIR_ZK ] || mkdir -p $TMP_DIR_ZK
+    [ -d $DATA_HOME ] || mkdir -p $DATA_HOME
+    [ -d $ZK_DATA_DIR ] || mkdir -p $ZK_DATA_DIR
+    
+- name: Download Zookeeper from OBS
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    obsutil cp -r -f obs://selfhosted/pkg/zk/ $TMP_DIR
+    ls -l $TMP_DIR/zk
+
+- name: Extract Zookeeper TGZ to DATA_HOME
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    tar zxf $TMP_DIR/zk/zookeeper-3.4.8.tar.gz -C $DATA_HOME
+
+- name: Update ZK quorum lines in zoo.cfg
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    i=1
+    for ip in ${NODE1_IP} ${NODE2_IP} ${NODE3_IP}; do
+      port1=$((3001 + 2*(i-1)))
+      port2=$((port1 + 1))
+      sed -i "s|^server\.${i}=.*|server.${i}=${ip}:${port1}:${port2}|" ${ZK_CONFIG_FILE}
+      i=$((i + 1))
+    done
+
+- name: Write myid for node1
+  hosts: 
+    - node1
+  cmd: |
+    mkdir -p $ZK_HOME/data
+    echo 1 > $ZK_HOME/data/myid
+
+- name: Write myid for node2
+  hosts: 
+    - node2
+  cmd: |
+    mkdir -p $ZK_HOME/data
+    echo 2 > $ZK_HOME/data/myid
+
+- name: Write myid for node3
+  hosts: 
+    - node3
+  cmd: |
+    mkdir -p $ZK_HOME/data
+    echo 3 > $ZK_HOME/data/myid
+
+- name: Start Zookeeper
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    $ZK_HOME/bin/zkServer.sh start
+
+- name: Check after Start Zookeeper
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    sleep 3
+    cat /data/zookeeper-3.4.8/data/myid
+    ps -ef | grep /data/zookeeper-3.4.8 | grep -v grep
+    $ZK_HOME/bin/zkServer.sh status
+    netstat -nltp | grep 3000
+
+- name: Extract ZKUI 
+  hosts:
+    - node3
+  cmd: |
+    tar zxf $TMP_DIR_ZK/zkui.tgz -C $DATA_HOME
+
+- name: Change Configuration of ZKUI
+  hosts:
+    - node3
+  cmd: |
+    sed -i "s|zkServer=.*|zkServer=${ZK_STRING}|g" $ZKUI_CONFIG_FILE
+
+- name: Start ZKUI
+  hosts:
+    - node3
+  cmd: |
+    cd $ZKUI_HOME
+    nohup java -jar zkui-2.0-SNAPSHOT-jar-with-dependencies.jar \
+      > zkui-out.log 2>&1 </dev/null &
+
+- name: Check after Start ZKUI
+  hosts:
+    - node3
+  cmd: |
+    sleep 3
+    ps -ef | grep zkui-2.0-SNAPSHOT-jar-with-dependencies.jar | grep -v grep
+    netstat -nltp | grep 9090
+
+
+- name: Import Zookeeper Data
+  hosts:
+    - node3
+  cmd: |
+    cd $TMP_DIR_ZK
+    ls -l
+    chmod +x zktool
+    export TARGET_ZK=localhost:3000
+    export IMPORT_FILE=zookeeper_export.json
+    ./zktool import
+
+- name: Update Zookeeper Data
+  hosts:
+    - node3
+  cmd: |
+    cd $TMP_DIR_ZK
+    ls -l
+    chmod +x zktool
+    export TARGET_ZK=localhost:3000
+    export EXCEL_FILE=./zk.xlsx
+    obsutil cp -f obs://selfhosted/hoymenergy/zk.xlsx $EXCEL_FILE
+    ./zktool update
+

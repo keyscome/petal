@@ -1,0 +1,74 @@
+tasks:
+- name: Stop Kibana
+  hosts:
+    - node3
+  cmd: |
+    systemctl status kibana
+    systemctl disable kibana
+    systemctl stop kibana
+    systemctl status kibana
+
+- name: Uninstall kibana
+  hosts:
+    - node3
+  cmd: |
+    rpm -e $(rpm -qa | grep kibana)
+
+- name: Remove Kibana Directory and Files
+  hosts:
+    - node3
+  cmd: |
+    rm -rf /etc/kibana/
+    rm -rf /var/lib/kibana/
+    rm -rf /var/log/kibana/
+    rm -rf /usr/share/kibana/
+
+- name: Remove Kibana Users
+  hosts:
+    - node3
+  cmd: |
+    userdel -r kibana
+    groupdel kibana
+
+- name: Stop elasticsearch
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    systemctl status elasticsearch
+    systemctl disable elasticsearch
+    systemctl stop elasticsearch
+    systemctl status elasticsearch
+
+- name: Uninstall elasticsearch
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    rpm -e $(rpm -qa | grep elasticsearch)
+
+- name: Remove Elasticsearch Directory and Files
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    rm -rf /etc/elasticsearch/
+    rm -rf /var/lib/elasticsearch/
+    rm -rf /var/log/elasticsearch/
+    rm -rf /usr/share/elasticsearch/
+      rm -rf /var/run/elasticsearch/
+      rm -rf /home/elasticsearch/
+      rm -rf /data/es717/data/
+
+- name: Clear Limits Configuration
+  hosts: [node1, node2, node3]
+  cmd: |
+    sed -i '/elasticsearch/d' /etc/security/limits.conf || true
+  
+- name: Clear Sysctl Configuration
+  hosts: [node1, node2, node3]
+  cmd: |
+    sed -i '/vm.max_map_count/d' /etc/sysctl.conf || true

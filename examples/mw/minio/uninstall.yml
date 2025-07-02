@@ -1,0 +1,20 @@
+tasks:
+  - name: Stop Minio Service
+    hosts: [node1, node2, node3]
+    cmd: |
+      systemctl stop minio || true
+      systemctl disable minio || true
+      systemctl reset-failed minio || true
+  - name: Remove Minio Service File
+    hosts: [node1, node2, node3]
+    cmd: | 
+      rm -f /etc/systemd/system/minio.service || true
+      systemctl daemon-reload || true
+  - name: Remove Minio Start Script
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -f /usr/local/bin/start-minio.sh || true
+  - name: Remove Minio Data Directory
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -rf /data/minio || true

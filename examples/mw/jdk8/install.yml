@@ -1,0 +1,16 @@
+tasks:
+- name: Install JDK 1.8
+  hosts: 
+    - node1
+    - node2
+    - node3
+  cmd: |
+    yum install -y java-1.8.0-openjdk
+- name: Check Java Version after Installation
+  hosts:
+    - node1
+    - node2
+    - node3
+  cmd: |
+    java -version
+    rpm -qa |grep java-1.8.0-openjdk

@@ -1,0 +1,52 @@
+env:
+  TMP_DIR: /tmp/selfhosted
+  TMP_DIR_REDIS: /tmp/selfhosted/redis
+  REDIS_CONFIG_FILE: /etc/redis/redis.conf
+tasks:
+  - name: Download Redis 5.0.5 Package
+    hosts:
+      - node3
+    cmd: |
+      obsutil cp -r -f obs://selfhosted/pkg/redis $TMP_DIR
+      ls -l $TMP_DIR/redis
+  - name: Extract Redis TGZ && Compile && Install Redis 5.0.5
+    hosts:
+      - node3
+    cmd: |
+      tar zxf $TMP_DIR/redis/redis-5.0.5.tar.gz
+      cd redis-5.0.5
+      yum install gcc-c++ -y
+      make && make install
+  - name: Create & update Redis Configuration File
+    hosts:
+      - node3
+    cmd: |
+      mkdir /etc/redis
+      cp redis-5.0.5/redis.conf $REDIS_CONFIG_FILE
+      sed -i "s|^daemonize no|daemonize yes|" $REDIS_CONFIG_FILE
+      sed -i "s|^bind 127.0.0.1|bind 0.0.0.0|" $REDIS_CONFIG_FILE
+      sed -i "s|^# requirepass fooboard|requirepass Heli198213|" $REDIS_CONFIG_FILE
+      
+  - name: Start Redis Server
+    hosts:
+      - node3
+    cmd: |
+      /usr/local/bin/redis-server $REDIS_CONFIG_FILE
+      ps -ef | grep redis-server
+      netstat -tulnp | grep 6379
+  
+  - name: Post
+    hosts:
+      - node3
+    cmd: |
+      echo "Redis 5.0.5 installed and started successfully on node3."
+      echo "Configuration file is located at $REDIS_CONFIG_FILE."
+      echo "You can connect to Redis using: redis-cli -h node3 -p 6379 -a Heli198213"
+
+  - name: Clean up temporary files
+    hosts:
+      - node3
+    cmd: |
+      rm -rf $TMP_DIR/redis
+      rm -rf redis-5.0.5
+      echo "Temporary files cleaned up."

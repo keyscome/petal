@@ -1,0 +1,16 @@
+tasks:
+  - name: Stop Kafka Service
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      /data/kafka/bin/kafka-server-stop.sh
+    
+  - name: Uninstall Kafka
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      rm -rf /data/kafka

@@ -1,0 +1,39 @@
+tasks:
+  - name: Stop rmq Service
+    hosts: [node1, node2, node3]
+    cmd: |
+      systemctl stop rabbitmq-server || true
+      systemctl disable rabbitmq-server || true
+      systemctl reset-failed rabbitmq-server || true
+
+  - name: Remove rmq Service File
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -f /etc/systemd/system/rabbitmq-server.service || true
+      systemctl daemon-reload || true
+
+  
+  - name: Remove rmq Configuration File
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -f /etc/rabbitmq/rabbitmq.config || true
+
+  - name: Remove rmq Plugins
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -f /usr/lib/rabbitmq/lib/rabbitmq_server-*/plugins/
+
+  - name: Remove rmq Data Directory
+    hosts: [node1, node2, node3]
+    cmd: |
+      rm -rf /var/lib/rabbitmq || true
+
+  - name: Clear Limits Configuration
+    hosts: [node1, node2, node3]
+    cmd: |
+      sed -i '/rabbitmq/d' /etc/security/limits.conf || true
+
+  - name: Clear Sysctl Configuration
+    hosts: [node1, node2, node3]
+    cmd: |
+      sed -i '/fs.file-max/d' /etc/sysctl.conf || true

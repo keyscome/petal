@@ -1,0 +1,49 @@
+tasks:
+- name: Stop Redis service
+  hosts:
+    - node3
+  cmd: |
+    # systemctl stop redis
+    pkill -f /usr/local/bin/redis-server
+
+- name: Remove Redis configuration files
+  hosts:
+    - node3
+  cmd: |
+    rm -rf /etc/redis.conf
+    rm -rf /etc/redis
+
+- name: Remove Redis data directory
+  hosts:
+    - node3
+  cmd: |
+    rm -rf /var/lib/redis
+
+
+- name: Remove Redis log files
+  hosts:
+    - node3
+  cmd: |
+    rm -rf /var/log/redis
+- name: Remove Redis binaries
+  hosts:
+    - node3
+  cmd: |
+    rm -rf /usr/local/bin/redis-server
+    rm -rf /usr/local/bin/redis-cli
+    rm -rf /usr/local/bin/redis-benchmark
+    rm -rf /usr/local/bin/redis-check-aof
+    rm -rf /usr/local/bin/redis-check-rdb
+
+- name: Remove Redis directories
+  hosts:
+    - node3
+  cmd: |
+    rm -rf /usr/local/bin/redis-*
+    rm -rf /usr/local/bin/redis-sentinel
+    rm -rf /usr/local/bin/redis-server
+    rm -rf /usr/local/bin/redis-cli
+    rm -rf /usr/local/bin/redis-benchmark
+    rm -rf /usr/local/bin/redis-check-aof
+    rm -rf /usr/local/bin/redis-check-rdb
+    

@@ -1,0 +1,75 @@
+env:
+  TMP_DIR: /tmp/selfhosted
+  NODE1_IP: 10.31.0.93
+  NODE2_IP: 10.31.0.246
+  NODE3_IP: 10.31.0.68
+  KAFKA_CONFIG_FILE: /data/kafka/config/server.properties
+
+tasks:
+  - name: Download Kafka Package
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      obsutil cp -r -f obs://selfhosted/pkg/kafka/ $TMP_DIR
+      ls -l $TMP_DIR/kafka
+  
+  - name: Extract Kafka TGZ to DATA_HOME
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      tar zxf $TMP_DIR/kafka/kafka_2.12-3.6.1.tgz -C /data
+      mv /data/kafka_2.12-3.6.1 /data/kafka
+      ls -l /data/kafka
+
+  - name: Update Kafka server.properties node1
+    hosts:
+      - node1
+    cmd: |
+      sed -i "s|^broker.id=.*|broker.id=1|" $KAFKA_CONFIG_FILE
+      sed -i "s|^listeners=.*|listeners=PLAINTEXT://$(hostname -I):9092|" $KAFKA_CONFIG_FILE
+      sed -i "s|^log.dirs=.*|log.dirs=/data/kafka/kafka-logs|" $KAFKA_CONFIG_FILE
+      sed -i "s|^zookeeper.connect=.*|zookeeper.connect=${NODE1_IP}:3000,${NODE2_IP}:3000,${NODE3_IP}:3000|" $KAFKA_CONFIG_FILE
+
+  - name: Update Kafka server.properties node2
+    hosts:
+      - node2
+    cmd: |
+      sed -i "s|^broker.id=.*|broker.id=2|" $KAFKA_CONFIG_FILE
+      sed -i "s|^listeners=.*|listeners=PLAINTEXT://$(hostname -I):9092|" $KAFKA_CONFIG_FILE
+      sed -i "s|^log.dirs=.*|log.dirs=/data/kafka/kafka-logs|" $KAFKA_CONFIG_FILE
+      sed -i "s|^zookeeper.connect=.*|zookeeper.connect=${NODE1_IP}:3000,${NODE2_IP}:3000,${NODE3_IP}:3000|" $KAFKA_CONFIG_FILE
+
+  - name: Update Kafka server.properties node3
+    hosts:
+      - node3
+    cmd: |
+      sed -i "s|^broker.id=.*|broker.id=3|" $KAFKA_CONFIG_FILE
+      sed -i "s|^listeners=.*|listeners=PLAINTEXT://$(hostname -I):9092|" $KAFKA_CONFIG_FILE
+      sed -i "s|^log.dirs=.*|log.dirs=/data/kafka/kafka-logs|" $KAFKA_CONFIG_FILE
+      sed -i "s|^zookeeper.connect=.*|zookeeper.connect=${NODE1_IP}:3000,${NODE2_IP}:3000,${NODE3_IP}:3000|" $KAFKA_CONFIG_FILE
+
+  - name: Start Kafka Server
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      /data/kafka/bin/kafka-server-start.sh -daemon $KAFKA_CONFIG_FILE
+      sleep 5
+      ps -ef | grep kafka
+      netstat -tulnp | grep 9092
+
+  # - name: Create Kafka Topic paas-log-operation-topic-product
+  #   hosts:
+  #     - node1
+  #   cmd: |
+  #     /data/kafka/bin/kafka-topics.sh \
+  #       --bootstrap-server $(hostname -I | awk '{print $1}'):9092 \
+  #       --create --topic paas-log-operation-topic-product \
+  #       --partitions 12
+      
+  #     /data/kafka/bin/kafka-topics.sh --list --bootstrap-server  $(hostname -I | awk '{print $1}'):9092
