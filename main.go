@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// Merge global env
-	globalEnv := env.MergeFromStringMap(taskFile.Env, "plain")
+	globalEnv := env.MergeFromStringMap(taskFile.Env)
 
 	// Init runner with global env and env file path
 	runner := task.NewRunner(globalEnv, *envFilePath, executor.SSHExecutor{})

@@ -56,7 +56,7 @@ func Run(t config.RemoteTask, globalEnv map[string]env.EnvVar, envFilePath strin
 	}
 
 	// Convert task.Env from map[string]string to map[string]EnvVar
-	taskEnv := env.MergeFromStringMap(t.Env, "plain")
+	taskEnv := env.MergeFromStringMap(t.Env)
 
 	// Build resolver
 	resolver := env.NewResolver(globalEnv, fileEnv, taskEnv)

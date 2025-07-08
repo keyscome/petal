@@ -1,94 +1,55 @@
-// File: internal/env/resolver.go
 package env
 
 import (
-	"regexp"
+	"os"
 	"strings"
 	"text/template"
 )
 
-
-// Resolver loads and renders environment variables from global, file, and task scopes
 type Resolver struct {
-	merged map[string]EnvVar // task > file > global
+	merged map[string]EnvVar
 }
 
-// NewResolver constructs a Resolver given multiple scopes of environment variable maps
 func NewResolver(global, file, task map[string]EnvVar) *Resolver {
 	merged := make(map[string]EnvVar)
-	for k, v := range global {
-		merged[k] = v
+	for _, src := range []map[string]EnvVar{global, file, task} {
+		for k, v := range src {
+			merged[k] = v
+		}
 	}
-	for k, v := range file {
-		merged[k] = v
-	}
-	for k, v := range task {
-		merged[k] = v
-	}
-	r := &Resolver{merged: merged}
-	r.preprocess()
-	return r
-}
-
-func (r *Resolver) Get(key string) (string, bool) {
-	if v, ok := r.merged[key]; ok {
-		return v.Value, true
-	}
-	return "", false
+	return &Resolver{merged: merged}
 }
 
 func (r *Resolver) Flat() map[string]string {
-	out := make(map[string]string)
+	flat := make(map[string]string)
 	for k, v := range r.merged {
-		out[k] = v.Value
+		flat[k] = v.Value
 	}
-	return out
+	return flat
 }
 
 func (r *Resolver) Render(input string) string {
-	// Handle ${VAR} syntax
-	out := r.replaceVars(input)
-	// Handle {{ .VAR }} syntax using text/template
-	tmpl, err := template.New("env").Parse(out)
+	rendered := os.Expand(input, func(k string) string {
+		if v, ok := r.merged[k]; ok {
+			return v.Value
+		}
+		return ""
+	})
+	tmpl, err := template.New("tmpl").Parse(rendered)
 	if err != nil {
-		return out
+		return rendered
 	}
 	var sb strings.Builder
 	tmpl.Execute(&sb, r.Flat())
 	return sb.String()
 }
 
-func (r *Resolver) replaceVars(s string) string {
-	varRegex := regexp.MustCompile(`\$\{(\w+)}`)
-	return varRegex.ReplaceAllStringFunc(s, func(match string) string {
-		key := varRegex.FindStringSubmatch(match)[1]
-		if val, ok := r.Get(key); ok {
-			return val
-		}
-		return match
-	})
-}
-
-// preprocess does recursive variable replacement on values (up to 3 passes)
-func (r *Resolver) preprocess() {
-	for i := 0; i < 3; i++ {
-		for k, v := range r.merged {
-			resolved := r.replaceVars(v.Value)
-			// avoid infinite loop
-			if resolved != v.Value {
-				r.merged[k] = EnvVar{Value: resolved, Type: v.Type}
-			}
-		}
-	}
-}
-
-func (r *Resolver) CheckMissing(required []string) []string {
-	missing := []string{}
-	for _, k := range required {
-		if _, ok := r.Get(k); !ok {
+func (r *Resolver) CheckMissing(keys []string) []string {
+	var missing []string
+	for _, k := range keys {
+		if _, ok := r.merged[k]; !ok {
 			missing = append(missing, k)
 		}
 	}
 	return missing
 }
-

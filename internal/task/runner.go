@@ -33,7 +33,7 @@ func (r *Runner) Run(task config.RemoteTask) {
 	color.PrintHeader("=== Task: %s ===", task.Name)
 
 	// Convert task.Env
-	taskEnv := env.MergeFromStringMap(task.Env, "plain")
+	taskEnv := env.MergeFromStringMap(task.Env)
 
 	// Load file env
 	fileEnv := map[string]env.EnvVar{}
