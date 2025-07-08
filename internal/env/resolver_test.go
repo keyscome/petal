@@ -8,23 +8,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var defaultSecrets = map[string]bool{
-	"DB_PASSWORD":  true,
-	"API_KEY":       true,
-	"ACCESS_TOKEN":  true,
-}
-
-func autoMarkSecrets(vars map[string]EnvVar) map[string]EnvVar {
-	for k := range vars {
-		if _, isSecret := defaultSecrets[k]; isSecret && vars[k].Type == "" {
-			val := vars[k]
-			val.Type = "secret"
-			vars[k] = val  // ✅ 正确地覆盖回去
-		}
-	}
-	return vars
-}
-
 func TestLoadEnvFile(t *testing.T) {
 	
 	path := filepath.Join("testdata", "sample.env")
@@ -36,9 +19,9 @@ func TestLoadEnvFile(t *testing.T) {
 	for k, v := range vars {
 		t.Logf("%s => type: %T | value: %+v", k, v, v)
 	}
-	t.Logf("Before autoMarkSecrets: %+v", vars)
-	vars = autoMarkSecrets(vars)
-	t.Logf("After  autoMarkSecrets: %+v", vars)
+	t.Logf("Before AutoMarkSecrets: %+v", vars)
+	vars = AutoMarkSecrets(vars)
+	t.Logf("After  AutoMarkSecrets: %+v", vars)
 
 	if vars["TMP_DIR"].Value != "/tmp/sample" {
 		t.Errorf("expected TMP_DIR to be /tmp/sample, got %s", vars["TMP_DIR"].Value)
@@ -94,7 +77,7 @@ func TestResolver_Mask(t *testing.T) {
 		"PLAIN":  {Value: "public", Type: "plain"},
 		"DB_PASSWORD": {Value: "abc123", Type: ""},
 	}
-	vars = autoMarkSecrets(vars)
+	vars = AutoMarkSecrets(vars)
 	r := NewResolver(nil, nil, vars)
 	masked := r.GetMaskedEnv()
 	t.Logf("Masked output: %+v", masked)

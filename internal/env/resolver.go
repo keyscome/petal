@@ -2,18 +2,11 @@
 package env
 
 import (
-	"bufio"
-	"os"
 	"regexp"
 	"strings"
 	"text/template"
 )
 
-// EnvVar represents a single environment variable with a value and a type (plain or secret)
-type EnvVar struct {
-	Value string
-	Type  string // "plain" or "secret"
-}
 
 // Resolver loads and renders environment variables from global, file, and task scopes
 type Resolver struct {
@@ -89,18 +82,6 @@ func (r *Resolver) preprocess() {
 	}
 }
 
-func (r *Resolver) GetMaskedEnv() map[string]string {
-	masked := make(map[string]string)
-	for k, v := range r.merged {
-		if v.Type == "secret" {
-			masked[k] = "******"
-		} else {
-			masked[k] = v.Value
-		}
-	}
-	return masked
-}
-
 func (r *Resolver) CheckMissing(required []string) []string {
 	missing := []string{}
 	for _, k := range required {
@@ -111,36 +92,3 @@ func (r *Resolver) CheckMissing(required []string) []string {
 	return missing
 }
 
-func LoadEnvFile(path string) (map[string]EnvVar, error) {
-	result := make(map[string]EnvVar)
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		k := strings.TrimSpace(parts[0])
-		v := strings.TrimSpace(parts[1])
-		// result[k] = EnvVar{Value: v, Type: "plain"}
-		result[k] = EnvVar{Value: v} // 默认 Type 留空
-	}
-	return result, scanner.Err()
-}
-
-func MergeFromStringMap(in map[string]string, asType string) map[string]EnvVar {
-	res := make(map[string]EnvVar)
-	for k, v := range in {
-		res[k] = EnvVar{Value: v, Type: asType}
-	}
-	return res
-}
