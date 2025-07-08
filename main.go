@@ -1,41 +1,55 @@
-// main.go
+// File: main.go
 package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"os"
 
-	"keyscome.io/petal/config"
-	"keyscome.io/petal/executor"
-	"keyscome.io/petal/task"
+	"keyscome.io/petal/internal/config"
+	"keyscome.io/petal/internal/env"
+	"keyscome.io/petal/internal/executor"
+	"keyscome.io/petal/internal/task"
 )
 
 func main() {
-	taskFilePath := flag.String("file", "task.yml", "path to task file (default: task.yml)")
+	// Define flags
+	taskFilePath := flag.String("f", "task.yml", "task file path (e.g. -f task.yml)")
+	envFilePath := flag.String("e", ".env", "env file path (e.g. -e .env)")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [task names...]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 	selectedTaskNames := flag.Args()
 
+	// Load task file
 	taskFile, err := config.LoadTaskFile(*taskFilePath)
 	if err != nil {
 		log.Fatalf("failed to load task file: %v", err)
 	}
-
 	if err := config.ValidateTaskFile(taskFile); err != nil {
 		log.Fatalf("invalid task file: %v", err)
 	}
 
-	runner := task.NewRunner(taskFile.Env, executor.SSHExecutor{})
+	// Merge global env
+	globalEnv := env.MergeFromStringMap(taskFile.Env, "plain")
 
+	// Init runner with global env and env file path
+	runner := task.NewRunner(globalEnv, *envFilePath, executor.SSHExecutor{})
+
+	// Select tasks
 	var tasksToRun []config.RemoteTask
 	if len(selectedTaskNames) == 0 {
 		tasksToRun = taskFile.Tasks
 	} else {
-		m := make(map[string]config.RemoteTask)
+		taskMap := make(map[string]config.RemoteTask)
 		for _, t := range taskFile.Tasks {
-			m[t.Name] = t
+			taskMap[t.Name] = t
 		}
 		for _, name := range selectedTaskNames {
-			t, ok := m[name]
+			t, ok := taskMap[name]
 			if !ok {
 				log.Fatalf("task '%s' not found in task file", name)
 			}
@@ -43,6 +57,7 @@ func main() {
 		}
 	}
 
+	// Run selected tasks
 	for _, t := range tasksToRun {
 		runner.Run(t)
 	}
