@@ -1,17 +1,3 @@
-env:
-  TMP_DIR: /tmp/selfhosted/
-  TMP_DIR_ZK: /tmp/selfhosted/zk/
-  DATA_HOME: /data
-  ZK_HOME: /data/zookeeper-3.4.8
-  ZK_DATA_DIR: /data/zookeeper-3.4.8/data
-  ZK_CONFIG_FILE: /data/zookeeper-3.4.8/conf/zoo.cfg
-  ZKUI_HOME: /data/zkui
-  ZKUI_CONFIG_FILE: /data/zkui/config.cfg
-  NODE1_IP: 10.31.0.93
-  NODE2_IP: 10.31.0.246
-  NODE3_IP: 10.31.0.68
-  ZK_STRING: 10.31.0.93:3000,10.31.0.246:3000,10.31.0.68:3000
-
 tasks:
 - name: Check Directory
   hosts:

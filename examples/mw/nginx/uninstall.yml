@@ -1,12 +1,9 @@
-env:
-  TMP_DIR: /tmp/selfhosted/nginx
-
 tasks:
-- name: Ensure TMP_DIR Exists
+- name: Ensure TMP_NGINX_DIR Exists
   hosts:
     - node1
   cmd: |
-    [ -d "$TMP_DIR" ] || mkdir -p "$TMP_DIR"
+    [ -d "$TMP_NGINX_DIR" ] || mkdir -p "$TMP_NGINX_DIR"
 
 - name: Check NGINX Version Before Uninstallation
   hosts:
@@ -26,13 +23,13 @@ tasks:
   cmd: |
     yum remove -y nginx
 
-- name: Move NGINX Repo File to TMP_DIR
+- name: Move NGINX Repo File to TMP_NGINX_DIR
   hosts:
     - node1
   cmd: |
     [ -f /etc/yum.repos.d/nginx.repo ] && {
-      mv /etc/yum.repos.d/nginx.repo "$TMP_DIR";
-      echo "[INFO] nginx.repo moved to $TMP_DIR";
+      mv /etc/yum.repos.d/nginx.repo "$TMP_NGINX_DIR";
+      echo "[INFO] nginx.repo moved to $TMP_NGINX_DIR";
     } || echo "[INFO] nginx.repo not found, skipping"
 
 - name: Verify NGINX Removal

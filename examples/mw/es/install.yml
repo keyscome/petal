@@ -1,9 +1,3 @@
-env:
-  PASSWORD_FILE: /tmp/es_password
-  ELASTIC_PASSWORD_FILE: /tmp/es_password_elastic
-  NODE1_IP: 10.31.0.93
-  NODE2_IP: 10.31.0.246
-  NODE3_IP: 10.31.0.68
 tasks:
   - name: Configure ES System Limits
     hosts:

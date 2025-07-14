@@ -1,8 +1,3 @@
-env:
-  TMP_DIR: /tmp/selfhosted
-  TMP_DIR_NACOS: /tmp/selfhosted/nacos
-  POSTGRESQL_IP: 10.31.0.93
-  PASSWORD: Heli198213
 tasks:
   - name: Download Nacos Packages
     hosts:

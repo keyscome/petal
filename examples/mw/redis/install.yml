@@ -1,7 +1,3 @@
-env:
-  TMP_DIR: /tmp/selfhosted
-  TMP_DIR_REDIS: /tmp/selfhosted/redis
-  REDIS_CONFIG_FILE: /etc/redis/redis.conf
 tasks:
   - name: Download Redis 5.0.5 Package
     hosts:
@@ -25,7 +21,7 @@ tasks:
       cp redis-5.0.5/redis.conf $REDIS_CONFIG_FILE
       sed -i "s|^daemonize no|daemonize yes|" $REDIS_CONFIG_FILE
       sed -i "s|^bind 127.0.0.1|bind 0.0.0.0|" $REDIS_CONFIG_FILE
-      sed -i "s|^# requirepass fooboard|requirepass Heli198213|" $REDIS_CONFIG_FILE
+      sed -i "s|^# requirepass fooboard|requirepass $REDIS_PASSWORD|" $REDIS_CONFIG_FILE
       
   - name: Start Redis Server
     hosts:

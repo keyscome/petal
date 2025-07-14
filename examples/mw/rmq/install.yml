@@ -1,9 +1,3 @@
-env:
-  TMP_DIR: /tmp/selfhosted
-  TMP_DIR_RMQ: /tmp/selfhosted/rmq
-  NODE1_HOSTNAME: selfhosted-0001
-  ADMIN_PASSWORD: jshadkhakjdhakj
-  HECOM_PASSWORD: kdsaldjkdsjakldjsalk
 tasks:
 - name: Configure System Limits
   hosts:

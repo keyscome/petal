@@ -1,9 +1,3 @@
-env:
-  TMP_DIR: /tmp/selfhosted
-  TMP_DIR_MINIO: /tmp/selfhosted/minio
-  NODE1_IP: 10.31.0.93
-  NODE2_IP: 10.31.0.246
-  NODE3_IP: 10.31.0.68
 tasks: 
   - name: Download Minio Package
     hosts:
