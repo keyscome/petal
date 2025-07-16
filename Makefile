@@ -4,7 +4,7 @@ APP_NAME := petal
 BUILD_DIR := build
 PLATFORMS := linux/amd64 windows/amd64 darwin/amd64 darwin/arm64
 
-.PHONY: all build clean dist
+.PHONY: all build clean dist examples
 
 all: build
 
@@ -26,7 +26,16 @@ clean:
 
 dist: build
 	@echo "✅ All builds are in $(BUILD_DIR)"
-
+	@obsutil cp "$(BUILD_DIR)/petal-linux-amd64" obs://selfhosted/petal/
+	@obsutil cp "$(BUILD_DIR)/petal-windows-amd64.exe" obs://selfhosted/petal/
+	@obsutil cp "$(BUILD_DIR)/petal-darwin-amd64" obs://selfhosted/petal/
+	@obsutil cp "$(BUILD_DIR)/petal-darwin-arm64" obs://selfhosted/petal/
+	@echo "📦 Distribution files uploaded to OBS"
+	@tar zcf examples.tgz examples
+	@obsutil cp examples.tgz obs://selfhosted/petal/
+	@rm -f examples.tgz
+	@echo "📦 Distribution files uploaded to OBS"
+	
 # Usage:
 #   make        # build all
 #   make clean  # clean build artifacts

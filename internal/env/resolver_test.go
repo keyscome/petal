@@ -1,4 +1,3 @@
-// File: internal/env/resolver_test.go
 package env
 
 import (
@@ -9,15 +8,11 @@ import (
 )
 
 func TestLoadEnvFile(t *testing.T) {
-	
 	path := filepath.Join("testdata", "sample.env")
 	t.Logf("Loading env file: %s", path)
 	vars, err := LoadEnvFile(path)
 	if err != nil {
 		t.Fatalf("failed to load env file: %v", err)
-	}
-	for k, v := range vars {
-		t.Logf("%s => type: %T | value: %+v", k, v, v)
 	}
 	t.Logf("Before AutoMarkSecrets: %+v", vars)
 	vars = AutoMarkSecrets(vars)
@@ -58,10 +53,10 @@ func TestResolver_Render(t *testing.T) {
 		"B": {Value: "${A}2", Type: "plain"},
 	}
 	task := map[string]EnvVar{
-		"C": {Value: "{{ .B }}3", Type: "plain"},
+		"C": {Value: "${B}3", Type: "plain"},
 	}
 	r := NewResolver(global, file, task)
-	raw := "ABC=${C}"
+	raw := "ABC={{ .C }}"
 	rendered := r.Render(raw)
 	t.Logf("Render input: %s", raw)
 	t.Logf("Flat env: %+v", r.Flat())
@@ -73,8 +68,8 @@ func TestResolver_Render(t *testing.T) {
 
 func TestResolver_Mask(t *testing.T) {
 	vars := map[string]EnvVar{
-		"SECRET": {Value: "sensitive", Type: "secret"},
-		"PLAIN":  {Value: "public", Type: "plain"},
+		"SECRET":      {Value: "sensitive", Type: "secret"},
+		"PLAIN":       {Value: "public", Type: "plain"},
 		"DB_PASSWORD": {Value: "abc123", Type: ""},
 	}
 	vars = AutoMarkSecrets(vars)
