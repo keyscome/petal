@@ -30,11 +30,15 @@ dist: build
 	@obsutil cp "$(BUILD_DIR)/petal-windows-amd64.exe" obs://selfhosted/petal/
 	@obsutil cp "$(BUILD_DIR)/petal-darwin-amd64" obs://selfhosted/petal/
 	@obsutil cp "$(BUILD_DIR)/petal-darwin-arm64" obs://selfhosted/petal/
-	@echo "📦 Distribution files uploaded to OBS"
+	@echo "✅ All builds uploaded to OBS"
+	
+dist-examples:
+	@echo "📦 Building example files"
 	@tar zcf examples.tgz examples
+	@echo "📦 Uploading examples to OBS"
 	@obsutil cp examples.tgz obs://selfhosted/petal/
 	@rm -f examples.tgz
-	@echo "📦 Distribution files uploaded to OBS"
+	@echo "✅ Example files uploaded to OBS"
 	
 # Usage:
 #   make        # build all

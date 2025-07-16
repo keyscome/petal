@@ -48,8 +48,15 @@ func (r *Runner) Run(task config.RemoteTask) {
 
 	// Build env resolver
 	resolver := env.NewResolver(r.GlobalEnv, fileEnv, taskEnv)
-	envAssign := buildEnvString(resolver.Flat())
-	renderedCmd := resolver.Render(task.Cmd)
+	envAssign := buildEnvString(resolver.Flat(false))
+	// 1. 渲染带变量的原始命令（含注释）
+	renderedCmdRaw := resolver.Render(task.Cmd, false)
+	// 2. 剥离注释（用于真正执行）
+	cmdToRun := env.StripShellComments(renderedCmdRaw)
+	// 3. 展示用脱敏命令
+	maskedDisplay := resolver.Render(task.Cmd, true)
+	color.PrintHeader(">>> Rendered Script on %s:", task.Hosts[0])
+	fmt.Println(maskedDisplay)
 
 	var wg sync.WaitGroup
 	for _, host := range task.Hosts {
@@ -57,8 +64,8 @@ func (r *Runner) Run(task config.RemoteTask) {
 		go func(h string) {
 			defer wg.Done()
 			color.PrintRunning("[%s][%s] Running...", task.Name, h)
-			color.PrintRunning(renderedCmd)
-			output, err := r.Exec.Execute(h, envAssign, renderedCmd)
+			color.PrintRunning(cmdToRun)
+			output, err := r.Exec.Execute(h, envAssign, cmdToRun)
 			if err != nil {
 				color.PrintError("[%s][%s] Error", task.Name, h)
 				color.PrintError("%s", output)

@@ -12,6 +12,9 @@ type Resolver struct {
 
 // 创建合并后的 Resolver
 func NewResolver(global, file, task map[string]EnvVar) *Resolver {
+	global = ExpandEnvVarsRecursive(global)
+	file = ExpandEnvVarsRecursive(file)
+	task = ExpandEnvVarsRecursive(task)
 	merged := make(map[string]EnvVar)
 	for _, src := range []map[string]EnvVar{global, file, task} {
 		for k, v := range src {
@@ -21,11 +24,15 @@ func NewResolver(global, file, task map[string]EnvVar) *Resolver {
 	return &Resolver{merged: merged}
 }
 
-// 将 EnvVar 映射为扁平的 map[string]string
-func (r *Resolver) Flat() map[string]string {
+// Flat 返回扁平变量 map（可选是否 mask secret）
+func (r *Resolver) Flat(maskSecret bool) map[string]string {
 	flat := make(map[string]string)
 	for k, v := range r.merged {
-		flat[k] = v.Value
+		if maskSecret && v.Type == "secret" {
+			flat[k] = "*****"
+		} else {
+			flat[k] = v.Value
+		}
 	}
 	return flat
 }
@@ -45,17 +52,17 @@ func expandVars(val string, vars map[string]string) string {
 	return val
 }
 
-// 渲染一个字符串，先展开 ${VAR}，再执行 {{ .VAR }}
-func (r *Resolver) Render(input string) string {
-	flat := r.Flat()
+// Render 渲染输入字符串，支持 ${VAR} 与 {{ .VAR }} 替换，并可脱敏 secret
+func (r *Resolver) Render(input string, maskSecret bool) string {
+	flat := r.Flat(maskSecret)
 
-	// 先将 flat 中的值进行 ${VAR} 替换
+	// 先进行 ${VAR} 替换
 	expanded := make(map[string]string)
 	for k, v := range flat {
 		expanded[k] = expandVars(v, flat)
 	}
 
-	// 再进行 {{ .VAR }} 替换
+	// 再进行 {{ .VAR }} 模板替换
 	tmpl, err := template.New("env").Parse(input)
 	if err != nil {
 		return input

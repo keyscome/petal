@@ -32,8 +32,8 @@ tasks:
       - node2
       - node3
     cmd: |
-      obsutil cp -r -f obs://selfhosted/pkg/es/ /tmp/selfhosted/
-      cd /tmp/selfhosted/es/
+      obsutil cp -r -f obs://selfhosted/pkg/es/ $TMP_DIR
+      cd $TMP_DIR_ES
       rpm -ivh elasticsearch-7.17.11-x86_64.rpm
       systemctl daemon-reload
 
@@ -43,7 +43,7 @@ tasks:
       - node2
       - node3
     cmd: |
-      cd /tmp/selfhosted/es/
+      cd $TMP_DIR_ES
       tar xf jdk-17.0.2.tar -C /opt/
       cat <<EOF >> /etc/profile
       export ES_JAVA_HOME=/opt/jdk-17.0.2
@@ -151,7 +151,7 @@ tasks:
       - node2
       - node3
     cmd: |
-      cd /tmp/selfhosted/es/
+      cd $TMP_DIR_ES
       tar zxf plugins.tgz -C /usr/share/elasticsearch/plugins/
       touch /etc/elasticsearch/char_filter_text.txt
 
@@ -161,7 +161,7 @@ tasks:
       - node2
       - node3
     cmd: |
-      cd /tmp/selfhosted/es/
+      cd $TMP_DIR_ES
       tar xf x-pack.tar -C /etc/elasticsearch/
 
   - name: Update File & Directory Permissions
@@ -215,7 +215,7 @@ tasks:
     hosts:
       - node3
     cmd: |
-      cd /tmp/selfhosted/es/
+      cd $TMP_DIR_ES
       rpm -ivh kibana-7.17.11-x86_64.rpm
 
   - name: Change Kibana Password
@@ -251,5 +251,3 @@ tasks:
       - node3
     cmd: |
       cd ~
-      rm -fr /tmp/selfhosted/es/
-      rm -f $PASSWORD_FILE

@@ -68,14 +68,15 @@ func Run(t config.RemoteTask, globalEnv map[string]env.EnvVar, envFilePath strin
 	// }
 
 	// Render command
-	renderedCmd := resolver.Render(t.Cmd)
-	fmt.Printf("[Task: %s] Command: %s\n", t.Name, renderedCmd)
-
+	printedRenderedCmd := resolver.Render(t.Cmd, true)
+	fmt.Printf("[Task: %s] Command: %s\n", t.Name, printedRenderedCmd)
+	
 	// Prepare command
-	cmd := exec.Command("bash", "-", renderedCmd)
+	executedRenderedCmd := resolver.Render(t.Cmd, false)
+	cmd := exec.Command("bash", "-", executedRenderedCmd)
 
 	// Inject merged env
-	envMap := resolver.Flat()
+	envMap := resolver.Flat(false)
 	envList := []string{}
 	for k, v := range envMap {
 			envList = append(envList, fmt.Sprintf("%s=%s", k, v))
