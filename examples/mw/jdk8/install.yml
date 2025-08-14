@@ -6,6 +6,7 @@ tasks:
     - node3
   cmd: |
     yum install -y java-1.8.0-openjdk
+    yum install -y java-1.8.0-openjdk-devel
 - name: Check Java Version after Installation
   hosts:
     - node1
@@ -14,3 +15,4 @@ tasks:
   cmd: |
     java -version
     rpm -qa |grep java-1.8.0-openjdk
+    rpm -qa |grep java-1.8.0-openjdk-devel
