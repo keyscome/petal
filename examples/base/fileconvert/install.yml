@@ -105,12 +105,13 @@ tasks:
       - node1
       - node2
     cmd: |
-      FILE_CONVERT_HOME=/data/hqcrm/paas-file-convert-server/
+      APP_HOME=/data/hqcrm
+      FILE_CONVERT_HOME=$APP_HOME/paas-file-convert-server/
       [ -d $FILE_CONVERT_HOME ] || mkdir -p $FILE_CONVERT_HOME
-      \cp fileconvert/check.sh /data/hqcrm/paas-file-convert-server/
-      chmod +x /data/hqcrm/paas-file-convert-server/check.sh
+      \cp fileconvert/check.sh $APP_HOME/paas-file-convert-server/
+      chmod +x $APP_HOME/paas-file-convert-server/check.sh
 
       crontab -l > mycron.tmp 2>/dev/null
-      echo "# */7 * * * * /data/hqcrm/paas-file-convert-server/check.sh" >> mycron.tmp
+      echo "# */7 * * * * $APP_HOME/paas-file-convert-server/check.sh" >> mycron.tmp
       crontab mycron.tmp
       rm -f mycron.tmp
