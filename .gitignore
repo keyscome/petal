@@ -1,3 +1,4 @@
 build/
 .vscode
 .env
+examples/base/obsutil/.env
