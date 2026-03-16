@@ -1,5 +1,62 @@
 # es
 
+## Overview
+
+Elasticsearch 7.17.11 is a distributed, RESTful search and analytics engine. This example deploys a 3-node Elasticsearch cluster with X-Pack security (TLS transport encryption + user authentication) and installs Kibana 7.17.11 on `node3` as the web-based management console. JDK 17 is installed as the dedicated Elasticsearch Java runtime.
+
+## Architecture
+
+- **Topology**: 3-node cluster (`node1`, `node2`, `node3`) — all nodes are master-eligible and data nodes
+- **Cluster name**: `es717-hqyg`
+- **Ports**: `9200` (HTTP REST API), `9300` (inter-node transport), `5601` (Kibana)
+- **Data directory**: `/data/es717/data/`
+- **Log directory**: `/data/es717/logs/`
+- **Config path**: `/etc/elasticsearch/elasticsearch.yml`
+- **Security**: X-Pack enabled — transport layer uses mTLS with self-signed certificates (`x-pack/instance/instance.key`, `instance.crt`, `ca/ca.crt`)
+- **Java runtime**: JDK 17 extracted to `/opt/jdk-17.0.2/`, referenced via `ES_JAVA_HOME`
+- **Dedicated user**: `elasticsearch` (no-login shell)
+- **Kibana** (node3 only): `server.host: 0.0.0.0`, connects to `http://node3:9200`, port `5601`
+- **Node IPs**: supplied via `$NODE1_IP`, `$NODE2_IP`, `$NODE3_IP`
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Full cluster bootstrap: system tuning, user creation, ES install, JDK, per-node config, plugins, certificates, permissions, service start, password setup, cluster health check, Kibana install and start |
+| `uninstall.yml` | Stops and removes Kibana and Elasticsearch, cleans up directories and system configuration |
+
+### `install.yml`
+
+1. **Configure ES System Limits** — Appends `elasticsearch` ulimit entries (`nproc 65535`, `nofile 65535`) to `/etc/security/limits.conf` and sets `vm.max_map_count = 262144` in `/etc/sysctl.conf`, then applies with `sysctl -p`.
+2. **Create User** — Creates the `elasticsearch` system user (no-login shell) and creates the data and log directories at `/data/es717/data/` and `/data/es717/logs/`.
+3. **Download && Install ES Packages** — Fetches all Elasticsearch packages from OBS into `$TMP_DIR_ES/`, installs `elasticsearch-7.17.11-x86_64.rpm` via `rpm`, and reloads systemd.
+4. **Install JDK17** — Extracts the JDK 17.0.2 tarball to `/opt/`, then appends `ES_JAVA_HOME` and `ES_PATH_CONF` exports to `/etc/profile`.
+5. **Update Configuration node1/2/3** — Writes a complete `elasticsearch.yml` for each respective node. Each config specifies: the cluster name, node name and rack attribute, data/log paths, network and transport host (bound to the node's hostname), HTTP and transport ports, seed hosts and initial master nodes (all three node IPs on port 9300), master/data role flags, and full X-Pack security settings (TLS key, certificate, CA, verification mode, and client authentication). These three tasks each target only their own node.
+6. **Install Plugins** — Extracts `plugins.tgz` directly into `/usr/share/elasticsearch/plugins/` and creates a placeholder `char_filter_text.txt` file in the config directory.
+7. **Install xpack Files** — Extracts the `x-pack.tar` archive into `/etc/elasticsearch/`, placing the TLS certificates and keys for inter-node encryption.
+8. **Update File & Directory Permissions** — Recursively `chown`s all Elasticsearch-owned paths (`/etc/elasticsearch`, `/var/lib/elasticsearch`, `/var/log/elasticsearch`, `/usr/share/elasticsearch`, `/home/elasticsearch`, `/data/es717/`) to the `elasticsearch` user and group.
+9. **Start ES** — Runs `systemctl daemon-reload` and `systemctl start elasticsearch` on all three nodes.
+10. **Set Password** — On `node3` only: runs `elasticsearch-setup-passwords auto -b` to auto-generate passwords for all built-in users, saves the output to `$PASSWORD_FILE`, and extracts the `elastic` user's password to `$ELASTIC_PASSWORD_FILE`.
+11. **Check Cluster** — On `node3`: reads the elastic password, then queries the cluster with `curl` for index listing (`_cat/indices`), cluster health (`_cluster/health`), and node listing (`_cat/nodes`).
+12. **Install Kibana** — On `node3`: installs `kibana-7.17.11-x86_64.rpm` from the temp directory.
+13. **Change Kibana Password** — On `node3`: writes `/etc/kibana/kibana.yml` with the server port (`5601`), host (`0.0.0.0`), Elasticsearch URL, Kibana index, and the auto-generated `elastic` password.
+14. **Start Kibana** — On `node3`: reloads systemd, enables Kibana at boot, starts it, and shows the service status.
+15. **Post** — Returns all nodes to their home directories (`cd ~`) after completing the installation.
+
+### `uninstall.yml`
+
+1. **Stop Kibana** — Stops and disables the `kibana` systemd service on `node3`.
+2. **Uninstall kibana** — Removes the Kibana RPM from `node3`.
+3. **Remove Kibana Directory and Files** — Deletes Kibana's data, log, config, and plugin directories.
+4. **Remove Kibana Users** — Deletes any Kibana-related system users.
+5. **Stop elasticsearch** — Stops and disables the `elasticsearch` systemd service on all three nodes.
+6. **Uninstall elasticsearch** — Removes the Elasticsearch RPM from all nodes.
+7. **Remove Elasticsearch Directory and Files** — Deletes `/data/es717/`, `/etc/elasticsearch/`, and related directories.
+8. **Clear Limits Configuration** — Uses `sed` to remove all `elasticsearch` lines from `/etc/security/limits.conf`.
+9. **Clear Sysctl Configuration** — Uses `sed` to remove the `vm.max_map_count` line from `/etc/sysctl.conf` and applies the change.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/es/install.yml 
 === Task: Configure ES System Limits ===

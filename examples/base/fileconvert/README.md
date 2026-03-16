@@ -1,5 +1,46 @@
 # fileconvert
 
+## Overview
+
+This example installs a full document and media conversion stack on application nodes. It combines Apache OpenOffice 4.1.7, LibreOffice 6.4.4.2 (with the Chinese language pack and SDK), Google Chrome 119, ChromeDriver 119, and Chinese system fonts — all of which are required by a file-conversion microservice (`paas-file-convert-server`) that converts uploaded documents (Word, Excel, PDF) and renders web pages to images. A scheduled health-check script is set up via cron to keep the service running.
+
+## Architecture
+
+- **Topology**: 2 nodes in parallel (`node1`, `node2`)
+- **Package source**: All packages are pre-bundled in `fileconvert.tgz` on OBS (no internet access required at install time)
+- **Install paths**:
+  - Apache OpenOffice: `/opt/openoffice4/`
+  - LibreOffice: `/opt/libreoffice6.4/`
+  - Google Chrome: `/usr/bin/google-chrome-stable`
+  - ChromeDriver: `/usr/bin/chromedriver`
+  - Fonts: `/usr/share/fonts/WenQuanYi/`, `/usr/share/fonts/SimSun/`
+- **App directory**: `/data/hqcrm/paas-file-convert-server/`
+- **Cron job**: Commented-out entry (`*/7 * * * *`) for `check.sh` to monitor the conversion service
+- **System locale**: Set to `zh_CN.UTF-8` (required for rendering Chinese characters)
+- **Dependencies**: `vulkan`, `liberation-fonts`, `xorg-x11-fonts-75dpi`, `wkhtmltox`
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Downloads and installs the entire document conversion stack, configures locale, and sets up the health-check cron job |
+
+### `install.yml`
+
+1. **Download Fileconvet Base Environment Package** — Fetches `fileconvert.tgz` from OBS object storage onto both nodes using `obsutil cp`.
+2. **Extract Fileconvet Base Environment Package** — Extracts the tarball, producing a `fileconvert/` directory containing all offline packages.
+3. **Install Apache_OpenOffice_4.1.7_Linux_x86-64_install-rpm_zh-CN** — Extracts the OpenOffice archive and installs the core RPM first (`openoffice-4.1.7-9800.x86_64.rpm`), then all component RPMs (base, calc, draw, impress, writer, math) via glob. Removes the extracted RPM directory after installation.
+4. **Install LibreOffice_6.4.4.2_Linux_x86-64_rpm** — Extracts and installs all LibreOffice 6.4.4.2 component RPMs from the main package archive, then removes the RPMs directory.
+5. **Install LibreOffice_6.4.4.2_Linux_x86-64_rpm_langpack_zh-CN** — Extracts and installs the Simplified Chinese language pack for LibreOffice 6.4.4.2.
+6. **Install LibreOffice_6.4.4.2_Linux_x86-64_rpm_sdk** — Extracts and installs the LibreOffice 6.4.4.2 SDK (development headers and UNO bridge), required by the conversion microservice for programmatic document operations.
+7. **Install google-chrome-stable-119.0.6045.105-1.x86_64** — Installs prerequisite packages (`xorg-x11-fonts-75dpi`, `wkhtmltox`, `vulkan`, `liberation-fonts`) before installing the pinned Chrome RPM. Uses both `rpm -ivh` and `yum localinstall` to resolve any remaining dependencies.
+8. **Install chromedriver-linux64-v119** — Extracts `chromedriver-linux64-v119.zip` and copies the `chromedriver` binary to `/usr/bin/`, making it available for Selenium-based web-rendering tasks.
+9. **Install linux-usr-share-fonts** — Extracts Chinese font files from `linux-usr-share-fonts.zip` into `/usr/share/fonts/`, then rebuilds the font cache with `mkfontscale`, `mkfontdir`, and `fc-cache`. Verifies installed fonts with `fc-list`.
+10. **Configure Some System ENV** — Appends `export LANG="zh_CN.UTF-8"` to `/etc/profile` and writes a full locale configuration block to `/etc/sysconfig/i18n`, enabling Chinese character rendering in the conversion service.
+11. **Configuration Check Script** — Creates the app home directory, copies `check.sh` to `/data/hqcrm/paas-file-convert-server/`, makes it executable, and adds a commented-out cron entry (`# */7 * * * *`) to `crontab` for periodic health monitoring. The entry is commented out to allow operators to enable it manually after verifying the service.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/base/fileconvert/install.yml 
 === Task: Download Fileconvet Base Environment Package ===

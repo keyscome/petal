@@ -1,5 +1,56 @@
 # zk
 
+## Overview
+
+Apache ZooKeeper 3.4.8 is a centralized coordination service used for distributed configuration, naming, synchronization, and group membership — commonly used as the metadata/coordination backend for Kafka, HBase, and similar systems. This example deploys a 3-node ZooKeeper quorum and installs **ZKUI**, a web-based ZooKeeper browser, on `node3`. It also imports initial ZooKeeper data from a JSON export and applies updates from an Excel file using `zktool`.
+
+## Architecture
+
+- **Topology**: 3-node quorum (`node1`, `node2`, `node3`)
+- **ZooKeeper version**: 3.4.8
+- **Client port**: `3000` (replaces the default `2181`)
+- **Quorum ports**: `3001`/`3002` (node1), `3003`/`3004` (node2), `3005`/`3006` (node3) — leader-election and peer-communication ports
+- **Install path**: `/data/zookeeper-3.4.8/` (`$ZK_HOME`)
+- **Data directory**: `$ZK_HOME/data/` (contains `myid` per node and the snapshot/log data)
+- **Config file**: `$ZK_CONFIG_FILE` (`zoo.cfg`)
+- **ZKUI**: deployed on `node3` at `/data/zkui/` — web UI at port `9090`
+- **Node IPs**: supplied via `$NODE1_IP`, `$NODE2_IP`, `$NODE3_IP`
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Deploys ZooKeeper quorum, configures it, imports seed data, and starts ZKUI |
+| `uninstall.yml` | Stops ZooKeeper and ZKUI, then moves installation directories to a backup location |
+
+### `install.yml`
+
+1. **Check Directory** — Creates required base directories (`$TMP_DIR`, `$TMP_DIR_ZK`, `$DATA_HOME`, `$ZK_DATA_DIR`) on all nodes if they don't already exist.
+2. **Download Zookeeper from OBS** — Fetches `zookeeper-3.4.8.tar.gz`, `zkui.tgz`, and `zktool` from OBS into `$TMP_DIR/zk/` on all nodes in parallel.
+3. **Extract Zookeeper TGZ to DATA_HOME** — Extracts the ZooKeeper archive to `$DATA_HOME` on all three nodes.
+4. **Update ZK quorum lines in zoo.cfg** — Iterates over the three node IPs and rewrites the `server.1`, `server.2`, and `server.3` lines in `zoo.cfg` using `sed`, assigning sequential quorum and election port pairs (3001/3002, 3003/3004, 3005/3006).
+5. **Write myid for node1/2/3** — Creates `$ZK_HOME/data/myid` with the node's numeric ID (1, 2, or 3). These three tasks run on their respective nodes.
+6. **Start Zookeeper** — Runs `zkServer.sh start` on all three nodes.
+7. **Check after Start Zookeeper** — Waits 3 seconds, then verifies the `myid` file, checks the running ZK process, queries `zkServer.sh status` (shows leader/follower role), and confirms port 3000 is listening.
+8. **Extract ZKUI** — Extracts `zkui.tgz` to `$DATA_HOME` on `node3`.
+9. **Change Configuration of ZKUI** — Updates the ZKUI config file with the ZooKeeper connection string (`$ZK_STRING`) via `sed`.
+10. **Start ZKUI** — Launches the ZKUI JAR (`zkui-2.0-SNAPSHOT-jar-with-dependencies.jar`) as a background process (`nohup`) on `node3`, logging to `zkui-out.log`.
+11. **Check after Start ZKUI** — Waits 3 seconds, then verifies the ZKUI process and that port 9090 is listening.
+12. **Import Zookeeper Data** — Runs `zktool import` on `node3` using `zookeeper_export.json` as the input, seeding the ZooKeeper namespace with initial configuration data.
+13. **Update Zookeeper Data** — Downloads `zk.xlsx` from OBS and runs `zktool update` to apply incremental ZooKeeper node updates from the spreadsheet.
+
+### `uninstall.yml`
+
+1. **Check Directory** — Ensures the backup temp directory exists.
+2. **Stop ZKServer** — Runs `zkServer.sh stop` on all three nodes.
+3. **Move Zookeeper to $TMP_DIR_ZK** — Moves the `/data/zookeeper-3.4.8/` directory to the temp backup location.
+4. **Check after Uninstallation of Zookeeper** — Verifies no ZooKeeper processes remain and port 3000 is no longer in use.
+5. **Stop ZKUI** — Kills the ZKUI Java process on `node3`.
+6. **Move ZKUI jar to $TMP_DIR_ZK** — Moves the ZKUI directory to the temp backup location.
+7. **Check after Uninstallation of ZKUI** — Verifies port 9090 is no longer in use.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/zk/install.yml 
 === Task: Check Directory ===

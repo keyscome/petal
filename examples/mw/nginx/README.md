@@ -1,5 +1,41 @@
 # nginx
 
+## Overview
+
+NGINX 1.20.2 is a high-performance HTTP server and reverse proxy commonly used to serve static content, terminate SSL/TLS, and proxy requests to upstream application servers. This example installs the stable release from the official NGINX yum repository on a single node.
+
+## Architecture
+
+- **Topology**: Single node (`node1`)
+- **Ports**: `80` (HTTP), `443` (HTTPS, after manual SSL configuration)
+- **Package source**: `http://nginx.org/packages/centos/` (stable channel, GPG-verified)
+- **Config file**: `/etc/nginx/nginx.conf` (default post-install location)
+- **Repo file**: `/etc/yum.repos.d/nginx.repo`
+- **Binary**: `/usr/sbin/nginx`
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Adds the official NGINX yum repository, installs NGINX 1.20.2, and verifies the installation |
+| `uninstall.yml` | Removes NGINX and backs up the yum repository file |
+
+### `install.yml`
+
+1. **Add NGINX Yum Repository** — Writes a `[nginx-stable]` repo definition to `/etc/yum.repos.d/nginx.repo` using a heredoc. The repo points to the official NGINX package CDN, enables GPG signature verification, and activates `module_hotfixes` for CentOS compatibility.
+2. **Install NGINX 1.20.2** — Clears the yum cache, rebuilds the metadata cache from the new repo, then installs the pinned version `nginx-1.20.2`.
+3. **Check NGINX Version After Installation** — Runs `nginx -v` to confirm the installed version and `rpm -qa | grep nginx` to list all installed NGINX packages.
+
+### `uninstall.yml`
+
+1. **Ensure TMP_NGINX_DIR Exists** — Creates the backup directory (`$TMP_NGINX_DIR`) if it doesn't already exist.
+2. **Check NGINX Version Before Uninstallation** — Prints the NGINX version (if present) and lists installed NGINX RPM packages as a pre-removal audit.
+3. **Remove NGINX** — Runs `yum remove -y nginx` to uninstall the package.
+4. **Move NGINX Repo File to TMP_NGINX_DIR** — If `/etc/yum.repos.d/nginx.repo` exists, moves it to the backup directory so it can be restored later; skips gracefully if not found.
+5. **Verify NGINX Removal** — Checks that the `nginx` binary is gone and no NGINX RPMs remain, reporting `[OK]` or `[WARN]` accordingly.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/nginx/install.yml 
 === Task: Add NGINX Yum Repository ===

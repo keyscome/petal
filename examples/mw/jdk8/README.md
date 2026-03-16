@@ -1,5 +1,39 @@
 # jdk8
 
+## Overview
+
+OpenJDK 1.8 (Java 8) is a widely-used open-source Java runtime and development kit. This example installs both the JRE (`java-1.8.0-openjdk`) and the full JDK (`java-1.8.0-openjdk-devel`) from the CentOS/RHEL yum repositories on all three cluster nodes in parallel. It is typically a prerequisite for other middleware (Elasticsearch, Kafka, Nacos, ZKUI).
+
+## Architecture
+
+- **Topology**: 3 nodes in parallel (`node1`, `node2`, `node3`)
+- **Package manager**: `yum` (CentOS/RHEL)
+- **Packages installed**:
+  - `java-1.8.0-openjdk` — JRE (runtime only)
+  - `java-1.8.0-openjdk-devel` — Full JDK (includes `javac`, `jar`, headers)
+- **Java home**: `/usr/lib/jvm/java-1.8.0-openjdk-<version>.x86_64/` (managed by `alternatives`)
+- **Default `java` binary**: `/usr/bin/java` (symlink managed by `update-alternatives`)
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Installs the JRE and JDK packages via yum and verifies the installed version |
+| `uninstall.yml` | Removes all `java-1.8.0-openjdk` packages and verifies the removal |
+
+### `install.yml`
+
+1. **Install JDK 1.8** — Runs `yum install -y java-1.8.0-openjdk` followed by `yum install -y java-1.8.0-openjdk-devel` on all three nodes in parallel. If the packages are already at the latest version, yum reports "Nothing to do" gracefully.
+2. **Check Java Version after Installation** — Runs `java -version` to confirm the active JVM version, then uses `rpm -qa` to list all installed `java-1.8.0-openjdk` and `java-1.8.0-openjdk-devel` packages on every node.
+
+### `uninstall.yml`
+
+1. **Check Java Version Before Uninstallation** — Runs `java -version` and lists installed JDK RPM packages as a pre-removal audit on all nodes.
+2. **Remove Java 1.8** — Runs `yum remove -y java-1.8.0-openjdk-*` to uninstall all `java-1.8.0-openjdk`-prefixed packages from all nodes.
+3. **Check Java Version After Uninstallation** — Re-runs `java -version` and the RPM listing to confirm the packages have been fully removed.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/jdk8/install.yml 
 === Task: Install JDK 1.8 ===
