@@ -1,5 +1,46 @@
 # minio
 
+## Overview
+
+MinIO is a high-performance, S3-compatible distributed object storage system. This example deploys MinIO in distributed mode across 3 nodes with 2 data drives per node (6 drives total), providing erasure-code redundancy and high availability. MinIO is managed as a systemd service.
+
+## Architecture
+
+- **Topology**: 3-node distributed cluster (`node1`, `node2`, `node3`)
+- **Drives per node**: 2 (`/data/minio/data1`, `/data/minio/data2`)
+- **Total drives**: 6 (erasure-set of 6)
+- **Port**: `9000` (S3 API and web console)
+- **Install path**: `/usr/local/bin/minio` (via RPM)
+- **Start script**: `/usr/local/bin/start-minio.sh`
+- **Systemd service**: `/etc/systemd/system/minio.service`
+- **Credentials**: `MINIO_ROOT_USER=minioadmin` / `MINIO_ROOT_PASSWORD=minioadmin#Crm110`
+- **Log file**: `/data/minio/minio.log`
+- **Node IPs**: supplied via `$NODE1_IP`, `$NODE2_IP`, `$NODE3_IP` environment variables
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Installs MinIO, writes the start script and systemd unit, then enables and starts the service |
+| `uninstall.yml` | Stops and removes the MinIO service, start script, and all data directories |
+
+### `install.yml`
+
+1. **Download Minio Package** — Fetches the MinIO RPM (`minio-20210326000041.0.0.x86_64.rpm`) and any supporting files from OBS into `$TMP_DIR_MINIO/` on all three nodes in parallel.
+2. **Install Minio** — Installs the MinIO RPM via `yum` and verifies the installation with `rpm -qa`.
+3. **Write Minio Start Script** — Creates `/data/minio/` and writes `/usr/local/bin/start-minio.sh`. The script sets credentials via environment variables and launches MinIO in distributed mode, referencing all 6 drives across the 3 nodes (`http://<nodeIP>/data/minio/data1`, `data2` for each). Output is appended to `/data/minio/minio.log`.
+4. **Minio Systemd Service** — Writes `/etc/systemd/system/minio.service` that runs as `root`, sets `LimitNOFILE=65536`, always restarts on failure, and runs `start-minio.sh`. Calls `systemctl daemon-reload` to register the unit.
+5. **Start Minio Service** — Enables the service at boot, starts it, and verifies its status via `systemctl`.
+
+### `uninstall.yml`
+
+1. **Stop Minio Service** — Stops and disables the `minio` systemd service.
+2. **Remove Minio Service File** — Deletes `/etc/systemd/system/minio.service` and reloads the daemon.
+3. **Remove Minio Start Script** — Deletes `/usr/local/bin/start-minio.sh`.
+4. **Remove Minio Data Directory** — Removes `/data/minio/` and all its contents (data drives and logs).
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/minio/install.yml 
 === Task: Download Minio Package ===

@@ -1,5 +1,42 @@
 # kafka
 
+## Overview
+
+Apache Kafka 3.6.1 (built with Scala 2.12) is a distributed event-streaming platform used for high-throughput, fault-tolerant publish-subscribe messaging. This example deploys a 3-broker Kafka cluster that connects to an existing ZooKeeper ensemble (see the `zk` example) for leader election and cluster coordination.
+
+## Architecture
+
+- **Topology**: 3-node cluster (`node1`, `node2`, `node3`) — one Kafka broker per node
+- **Broker IDs**: `1` (node1), `2` (node2), `3` (node3)
+- **Port**: `9092` (PLAINTEXT listener on each node's primary IP)
+- **Log directory**: `/data/kafka/kafka-logs/` on each broker
+- **Install path**: `/data/kafka/`
+- **ZooKeeper connect**: `${NODE1_IP}:3000,${NODE2_IP}:3000,${NODE3_IP}:3000`
+- **Dependencies**: A running ZooKeeper cluster (port `3000` on each node — see `examples/mw/zk`)
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Deploys Kafka binaries, configures per-node broker settings, and starts all brokers |
+| `uninstall.yml` | Stops the Kafka broker processes and removes the installation directory |
+
+### `install.yml`
+
+1. **Download Kafka Package** — Downloads `kafka_2.12-3.6.1.tgz` and supporting files from OBS into `$TMP_DIR/kafka/` on all three nodes in parallel.
+2. **Extract Kafka TGZ to DATA_HOME** — Extracts the archive to `/data/` and renames the directory to `/data/kafka/`.
+3. **Update Kafka server.properties node1/2/3** — Uses `sed` to configure each broker's `server.properties` with its unique `broker.id` (1/2/3), its host's IP as the `listeners` endpoint, the log directory, and the ZooKeeper connection string. Each task targets only its respective node.
+4. **Start Kafka Server** — Starts all three brokers in daemon mode using `kafka-server-start.sh -daemon`, waits 5 seconds, then verifies the process is running and port 9092 is listening.
+
+> **Note**: A commented-out task for creating a topic (`paas-log-operation-topic-product` with 12 partitions) is included in `install.yml` for reference.
+
+### `uninstall.yml`
+
+1. **Stop Kafka Service** — Runs `kafka-server-stop.sh` on all nodes to gracefully shut down the brokers.
+2. **Uninstall Kafka** — Removes the `/data/kafka/` installation directory from all nodes.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/kafka/install.yml 
 === Task: Download Kafka Package ===

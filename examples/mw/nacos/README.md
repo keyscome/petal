@@ -1,5 +1,44 @@
 # nacos
 
+## Overview
+
+Alibaba Nacos is an open-source platform for dynamic service discovery, configuration management, and service metadata management. This example deploys a 3-node Nacos cluster backed by PostgreSQL (on `node1`) as its persistent store. The service is managed via systemd and waits for PostgreSQL to be available before starting.
+
+## Architecture
+
+- **Topology**: 3-node cluster (`node1`, `node2`, `node3`)
+- **Port**: `8848` (Nacos HTTP API and console)
+- **Install path**: `/data/nacos/`
+- **Systemd service**: `/etc/systemd/system/nacos.service`
+- **Database**: PostgreSQL on `node1:5432`, database `nacos_config`, user `nacos`
+- **Config file**: `/data/nacos/conf/application.properties` (updated with PostgreSQL JDBC URL)
+- **Dependencies**: PostgreSQL (must be running before Nacos starts), JDK 1.8 (`java-1.8.0-openjdk`)
+- **Startup readiness**: The systemd unit uses `ExecStartPre` with `nc -z node1 5432` to poll until PostgreSQL is reachable before launching Nacos.
+- **Node IPs**: `$POSTGRESQL_IP` environment variable controls the database host
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Downloads and configures Nacos, sets up the PostgreSQL database, and registers the systemd service |
+| `uninstall.yml` | Stops and removes the Nacos service, configuration directory, and database |
+
+### `install.yml`
+
+1. **Download Nacos Packages** — Fetches `nacos_pg.tgz` and the PostgreSQL schema file from OBS into `$TMP_DIR/nacos/` on all three nodes in parallel. Extracts the archive to `/data/nacos_pg/` and renames it to `/data/nacos/`.
+2. **Postgre Nacos Setup** — Runs on `node1` only. Creates the `nacos_config` database and `nacos` user in PostgreSQL (skips if they already exist), grants all privileges, and imports the Nacos schema SQL file (`nacos-pg.sql`) using `psql`.
+3. **Nacos Config Setup** — On all three nodes, updates the `db.url.0` property in `application.properties` to point to the PostgreSQL JDBC URL at `${POSTGRESQL_IP}:5432/nacos_config`.
+4. **Systemd Nacos Service** — Writes `/etc/systemd/system/nacos.service` on all nodes. The unit: waits for PostgreSQL availability via `nc -z node1 5432` in `ExecStartPre`, sets `JAVA_HOME` to the OpenJDK 1.8 path, starts Nacos with `/data/nacos/bin/startup.sh`, and stops with `shutdown.sh`. Enables and starts the service, then shows status.
+
+### `uninstall.yml`
+
+1. **Stop Nacos Service** — Stops and disables the `nacos` systemd service on all nodes.
+2. **Remove Nacos Service File** — Deletes `/etc/systemd/system/nacos.service` and runs `systemctl daemon-reload`.
+3. **Remove Nacos Configuration Directory** — Removes `/data/nacos/` and all its contents.
+4. **Remove Nacos Database** — Connects to PostgreSQL as `postgres` and drops the `nacos_config` database and `nacos` user.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/nacos/install.yml 
 === Task: Download Nacos Packages ===

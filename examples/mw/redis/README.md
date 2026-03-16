@@ -1,5 +1,45 @@
 # redis
 
+## Overview
+
+Redis 5.0.5 is an open-source, in-memory data structure store used as a database, cache, and message broker. This example deploys Redis on a single host, compiling it from source and configuring it as a persistent background daemon secured with a password.
+
+## Architecture
+
+- **Topology**: Single node (`node3`)
+- **Port**: `6379` (client connections)
+- **Config file**: `/etc/redis/redis.conf`
+- **Data directory**: `/var/lib/redis/` (default)
+- **Binary path**: `/usr/local/bin/redis-server` (compiled from source via `make && make install`)
+- **Authentication**: Password set via `requirepass` in config (supplied through `$REDIS_PASSWORD`)
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Compiles Redis from source and starts it as a daemon |
+| `uninstall.yml` | Stops the Redis process and removes all related files |
+
+### `install.yml`
+
+1. **Download Redis 5.0.5 Package** — Fetches the `redis-5.0.5.tar.gz` tarball from OBS object storage into `$TMP_DIR/redis/` and lists the directory to confirm the download.
+2. **Extract Redis TGZ && Compile && Install Redis 5.0.5** — Extracts the archive, installs the `gcc-c++` build toolchain via yum, then builds and installs Redis using `make && make install`.
+3. **Create & update Redis Configuration File** — Creates `/etc/redis/`, copies the default `redis.conf` into it, and uses `sed` to enable daemonized mode, bind to all interfaces (`0.0.0.0`), and set the access password.
+4. **Start Redis Server** — Launches `redis-server` with the updated config file, then verifies the process and that port 6379 is listening.
+5. **Post** — Prints a success summary with connection instructions.
+6. **Clean up temporary files** — Removes the downloaded archive and the compiled source directory.
+
+### `uninstall.yml`
+
+1. **Stop Redis service** — Sends a `SHUTDOWN` command via `redis-cli` to gracefully stop the server.
+2. **Remove Redis configuration files** — Deletes `/etc/redis/` and its contents.
+3. **Remove Redis data directory** — Removes `/var/lib/redis/`.
+4. **Remove Redis log files** — Removes `/var/log/redis/`.
+5. **Remove Redis binaries** — Deletes the installed executables (`redis-server`, `redis-cli`, etc.) from `/usr/local/bin/`.
+6. **Remove Redis directories** — Cleans up any remaining Redis-related directories.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/redis/install.yml 
 === Task: Download Redis 5.0.5 Package ===

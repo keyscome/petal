@@ -1,5 +1,60 @@
 # rmq
 
+## Overview
+
+RabbitMQ 3.6.11 is an open-source message broker implementing the AMQP protocol. This example deploys a 3-node RabbitMQ cluster with the management UI plugin and the `rabbitmq_delayed_message_exchange` plugin. After the cluster is formed, it sets up users, virtual hosts, exchanges, queues with bindings, dead-letter routing, and HA/TTL policies — making it production-ready for application workloads.
+
+## Architecture
+
+- **Topology**: 3-node cluster (`node1`, `node2`, `node3`) — node2 and node3 join node1's cluster
+- **Ports**: `5672` (AMQP), `15672` (management UI)
+- **Dependencies**: Erlang 20.3.8 (OTP runtime), `socat` (for RabbitMQ CLI networking)
+- **Plugins**: `rabbitmq_management` (HTTP API + web console), `rabbitmq_delayed_message_exchange` (delayed routing)
+- **Cookie sync**: The Erlang cluster cookie is copied from node1 to node2 and node3 via `scp` to enable cluster membership
+- **Virtual hosts**: `product60`, `product`, `tenancy`
+- **Users**: `admin` (administrator), `hecom` (administrator) — `guest` user is deleted
+- **Exchanges** (in `product` vhost): `dead.letter.exchange` (topic), `paas.exchange` (topic), `paas.im.exchange` (direct)
+- **System limits**: `rabbitmq` user: `nofile 1024000`, `nproc 65535`; kernel: `fs.file-max 65536`
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `install.yml` | Full cluster bootstrap: installs RabbitMQ + dependencies, configures plugins, forms the cluster, creates users/vhosts/exchanges/queues/policies |
+| `uninstall.yml` | Stops RabbitMQ and removes all related files and system configuration |
+
+### `install.yml`
+
+1. **Configure System Limits** — Appends `rabbitmq` ulimit entries to `/etc/security/limits.conf` and sets `fs.file-max` in `/etc/sysctl.conf`, then applies with `sysctl -p`.
+2. **Check Directory** — Creates `$TMP_DIR` if it doesn't already exist on all nodes.
+3. **Download RabbitMQ Packages** — Downloads Erlang RPM, socat RPM, RabbitMQ RPM, and the delayed message exchange plugin from OBS into `$TMP_DIR_RMQ/`.
+4. **Install Erlang etc** — Installs `erlang-20.3.8.26` and `socat-1.7.3.2` RPMs in order, verifying each with `rpm -qa`.
+5. **Install RabbitMQ** — Installs `rabbitmq-server-3.6.11` RPM, reloads the systemd daemon, and ensures `/var/lib/rabbitmq/` is owned by the `rabbitmq` user.
+6. **Configure Plugins** — Copies the `rabbitmq_delayed_message_exchange` `.ez` plugin file to the RabbitMQ plugins directory and sets correct ownership/permissions.
+7. **Add Configuration File** — Copies the example `rabbitmq.config` to `/etc/rabbitmq/`, sets its ownership, enables and starts `rabbitmq-server`, then waits 3 seconds.
+8. **Use Plugin Management** — Enables `rabbitmq_management` and `rabbitmq_delayed_message_exchange` plugins on all nodes.
+9. **Stop RabbitMQ** — Disables plugins and stops `rabbitmq-server` on all nodes (preparing for the cookie sync step).
+10. **Sync Cookie** — On `node1` only: `scp`-copies the Erlang cluster cookie (`.erlang.cookie`) from node1 to node2 and node3, ensuring all nodes share the same cluster secret.
+11. **Start RabbitMQ** — Fixes ownership of `/var/lib/rabbitmq/`, starts `rabbitmq-server`, re-enables both plugins, and waits 3 seconds.
+12. **Add node2 node3 to Cluster** — Appends `/etc/hosts` entries for all three nodes, then runs `rabbitmqctl stop_app` → `join_cluster rabbit@$NODE1_HOSTNAME` → `start_app` on node2 and node3, and verifies cluster status.
+13. **RabbitMQ Users Ops** — On `node1`: adds `admin` and `hecom` users with administrator tags, sets permissions on the `/` vhost, and deletes the default `guest` user.
+14. **Create vhost** — Creates vhosts `product60`, `product`, and `tenancy`, and sets `hecom`'s permissions on `product` and `tenancy`.
+15. **Declare Exchange** — Uses `rabbitmqctl eval` to declare `dead.letter.exchange` (topic), `paas.exchange` (topic), and `paas.im.exchange` (direct) in the `product` vhost.
+16. **Declare and Bind Queue** — Declares multiple durable queues in the `product` vhost and binds them to `paas.exchange` with routing-key patterns for ES document lifecycle events (create/delete/update).
+17. **Set Policy** — Applies HA and TTL policies: dead-letter routing with 2s TTL for aggregation queues, 1s TTL for IM and ES queues, a catch-all DLX policy for unmatched queues, and HA replication for the `tenancy` vhost.
+
+### `uninstall.yml`
+
+1. **Stop rmq Service** — Stops and disables `rabbitmq-server` on all nodes.
+2. **Remove rmq Service File** — Removes the systemd unit file and reloads the daemon.
+3. **Remove rmq Configuration File** — Deletes `/etc/rabbitmq/rabbitmq.config`.
+4. **Remove rmq Plugins** — Removes the delayed message exchange plugin `.ez` file.
+5. **Remove rmq Data Directory** — Deletes `/var/lib/rabbitmq/` and its Mnesia database.
+6. **Clear Limits Configuration** — Removes the `rabbitmq` lines from `/etc/security/limits.conf`.
+7. **Clear Sysctl Configuration** — Removes the `fs.file-max` line from `/etc/sysctl.conf` and applies the change.
+
+## Example
+
 ```bash
 [root@selfhosted-0001 petal]# ./petal-linux-amd64 -file task/mw/rmq/install.yml 
 === Task: Configure System Limits ===
