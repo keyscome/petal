@@ -1,0 +1,46 @@
+env:
+  CLUSTER_NAME: petal-docker-test
+
+tasks:
+  - name: ping-all
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: echo "Hello from $(hostname)"
+
+  - name: show-os
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: |
+      echo "Node: $(hostname)"
+      grep PRETTY_NAME /etc/os-release
+
+  - name: run-on-single
+    hosts:
+      - node1
+    cmd: hostname
+
+  - name: run-on-pair
+    hosts:
+      - node2
+      - node3
+    cmd: hostname
+
+  - name: global-env
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: echo "Cluster is $CLUSTER_NAME on $(hostname)"
+
+  - name: task-env-override
+    env:
+      CLUSTER_NAME: overridden-cluster
+    hosts:
+      - node1
+      - node2
+      - node3
+    cmd: echo "Cluster is $CLUSTER_NAME on $(hostname)"

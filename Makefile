@@ -4,7 +4,7 @@ APP_NAME := petal
 BUILD_DIR := build
 PLATFORMS := linux/amd64 windows/amd64 darwin/amd64 darwin/arm64
 
-.PHONY: all build clean dist examples
+.PHONY: all build clean dist examples docker-up docker-down
 
 all: build
 
@@ -39,8 +39,19 @@ dist-examples:
 	@obsutil cp examples.tgz obs://selfhosted/petal/
 	@rm -f examples.tgz
 	@echo "✅ Example files uploaded to OBS"
-	
+
+# Spin up three Docker-based SSH test nodes (node1, node2, node3) on localhost
+docker-up:
+	@bash docker/setup.sh
+
+# Tear down the Docker test nodes
+docker-down:
+	@bash docker/setup.sh --down
+
 # Usage:
-#   make        # build all
-#   make clean  # clean build artifacts
-#   make dist   # build + summary
+#   make              # build all
+#   make clean        # clean build artifacts
+#   make dist         # build + upload to OBS
+#   make docker-up    # start local SSH test cluster via Docker
+#   make docker-down  # stop local SSH test cluster
+

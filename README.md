@@ -68,7 +68,49 @@ Then open **http://localhost:8080** in your browser.
 
 The web UI shows all tasks defined in the task file. Click **▶ Run** on any task to execute it; real-time output streams directly into the page via Server-Sent Events.
 
-## 🔧 Features
+## 🐳 Local Multi-Node Test Environment (Docker)
+
+You can simulate a distributed SSH cluster on your PC using Docker. This spins up three containers (`node1`, `node2`, `node3`) — each running an SSH server — so you can test Petal's parallel task execution without real remote machines.
+
+**Prerequisites:** Docker and Docker Compose installed.
+
+> ⚠️ **Test-only keys** — `make docker-up` generates an unencrypted RSA key pair in `docker/ssh/` (git-ignored). These keys are for local Docker testing only and must never be used against production machines.
+
+### Quick start
+
+```bash
+# 1. Start the test nodes (generates an SSH key pair and updates ~/.ssh/config)
+make docker-up
+
+# 2. Build petal
+make build
+
+# 3. Run the bundled test tasks
+./build/petal-linux-amd64 -f docker/task.yml
+# or run a single task
+./build/petal-linux-amd64 -f docker/task.yml ping-all
+```
+
+### What it sets up
+
+| Container | SSH port on localhost | Hostname |
+|-----------|----------------------|----------|
+| node1     | 2221                 | node1    |
+| node2     | 2222                 | node2    |
+| node3     | 2223                 | node3    |
+
+`setup.sh` (called by `make docker-up`) will:
+1. Generate a disposable RSA key pair in `docker/ssh/` (excluded from git).
+2. Build and start the three SSH containers.
+3. Append `node1` / `node2` / `node3` entries to `~/.ssh/config`.
+
+### Tear down
+
+```bash
+make docker-down
+```
+
+
 
 - ✅ YAML-based configuration
 - ✅ Global + task-level environment support
