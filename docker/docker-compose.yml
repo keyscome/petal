@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  node1:
+    build: .
+    hostname: node1
+    ports:
+      - "2221:22"
+    volumes:
+      - ./ssh/id_ed25519.pub:/tmp/authorized_keys:ro
+
+  node2:
+    build: .
+    hostname: node2
+    ports:
+      - "2222:22"
+    volumes:
+      - ./ssh/id_ed25519.pub:/tmp/authorized_keys:ro
+
+  node3:
+    build: .
+    hostname: node3
+    ports:
+      - "2223:22"
+    volumes:
+      - ./ssh/id_ed25519.pub:/tmp/authorized_keys:ro
