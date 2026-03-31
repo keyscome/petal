@@ -11,12 +11,15 @@ import (
 	"keyscome.io/petal/internal/env"
 	"keyscome.io/petal/internal/executor"
 	"keyscome.io/petal/internal/task"
+	"keyscome.io/petal/internal/web"
 )
 
 func main() {
 	// Define flags
 	taskFilePath := flag.String("f", "task.yml", "task file path (e.g. -f task.yml)")
 	envFilePath := flag.String("e", ".env", "env file path (e.g. -e .env)")
+	webMode := flag.Bool("web", false, "start web UI instead of running tasks from CLI")
+	webAddr := flag.String("addr", ":8080", "address for web UI to listen on (e.g. -addr :8080)")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options] [task names...]\n", os.Args[0])
 		flag.PrintDefaults()
@@ -31,6 +34,15 @@ func main() {
 	}
 	if err := config.ValidateTaskFile(taskFile); err != nil {
 		log.Fatalf("invalid task file: %v", err)
+	}
+
+	// Web mode: start the web UI and exit.
+	if *webMode {
+		srv := web.NewServer(taskFile, *envFilePath)
+		if err := srv.Start(*webAddr); err != nil {
+			log.Fatalf("web server error: %v", err)
+		}
+		return
 	}
 
 	// Merge global env

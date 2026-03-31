@@ -54,14 +54,29 @@ Run selected task(s):
 
 `./petal say-hello`
 
+## 🌐 Web UI
+
+Start the built-in web dashboard to browse and run tasks in a browser:
+
+```bash
+./petal -web
+# or specify a custom address
+./petal -web -addr :8080 -f task.yml
+```
+
+Then open **http://localhost:8080** in your browser.
+
+The web UI shows all tasks defined in the task file. Click **▶ Run** on any task to execute it; real-time output streams directly into the page via Server-Sent Events.
+
 ## 🔧 Features
 
 - ✅ YAML-based configuration
 - ✅ Global + task-level environment support
 - ✅ Parallel SSH command execution
 - ✅ Color-coded terminal output
+- ✅ Browser-based web UI with real-time output streaming
 - ⏳ Planned: Logically Orchestrate Tasks
-- ⏳ Planned: Senstive Environment Variables
+- ⏳ Planned: Sensitive Environment Variables
 
 ## 🤝 Contributing
 
